@@ -2,7 +2,8 @@ package io.mdcatapult.doclib.consumers
 
 import java.io.{BufferedInputStream, File, FileInputStream, FileOutputStream}
 import akka.actor.ActorSystem
-import cats.data.OptionT
+import cats.data._
+import cats.implicits._
 import com.spingo.op_rabbit.SubscriptionRef
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
@@ -37,7 +38,7 @@ object ConsumerUnarchive extends App with LazyLogging {
   val collection = mongo.collection
 
 
-  def enqueue(extracted: List[String]) = {
+  def enqueue(extracted: List[String]): Unit = {
     extracted.foreach(p ⇒ {
       prefetch.send(PrefetchMsg(source=p))
     })
