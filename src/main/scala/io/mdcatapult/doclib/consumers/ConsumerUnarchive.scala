@@ -1,29 +1,27 @@
-package io.mdcatapult.poseidon
+package io.mdcatapult.doclib.consumers
 
 import java.io.{BufferedInputStream, File, FileInputStream, FileOutputStream}
-
 import akka.actor.ActorSystem
-import cats.data._
-import cats.implicits._
+import cats.data.OptionT
 import com.spingo.op_rabbit.SubscriptionRef
-import io.mdcatapult.klein.queue.Queue
-import io.mdcatapult.klein.mongo.Mongo
 import com.typesafe.config.{Config, ConfigFactory}
-import org.mongodb.scala._
-import org.mongodb.scala.model.Filters._
 import com.typesafe.scalalogging.LazyLogging
+import io.mdcatapult.doclib.messages.{IncomingMsg, PrefetchMsg}
+import io.mdcatapult.klein.mongo.Mongo
+import io.mdcatapult.klein.queue.Queue
 import org.apache.commons.compress.archivers.ArchiveStreamFactory
 import org.apache.commons.io.{FilenameUtils, IOUtils}
-import org.bson.types._
-import org.mongodb.scala.model.Updates._
-
+import org.bson.types.ObjectId
+import org.mongodb.scala.Document
+import org.mongodb.scala.model.Filters.{and, equal}
+import org.mongodb.scala.model.Updates.set
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
 /**
   * RabbitMQ Consumer to unarchive files
   */
-object ConsumerExtract extends App with LazyLogging {
+object ConsumerUnarchive extends App with LazyLogging {
 
   implicit val system: ActorSystem = ActorSystem("consumer-unarchive")
   implicit val executor: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global

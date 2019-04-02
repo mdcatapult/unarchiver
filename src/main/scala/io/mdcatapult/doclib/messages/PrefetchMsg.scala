@@ -1,4 +1,4 @@
-package io.mdcatapult.poseidon
+package io.mdcatapult.doclib.messages
 
 import io.mdcatapult.klein.queue.Envelope
 import play.api.libs.json.{Format, Json, Reads, Writes}
