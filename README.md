@@ -27,9 +27,9 @@ The app allows runtime configuration via environment variables
 * **RABBITMQ_PORT** - optional: port to connect to (default: 5672)
 * **RABBITMQ_VHOST** - optional: vhost to connect to (default: /)
 * **RABBITMQ_EXCHANGE** - optional: exchange that the consumer should be bound to
-* **CONSUMER_QUEUE** - optional: name of the queue to consume (default: klein.unarchive)
-* **CONSUMER_CONCURRENT** - optional: number of messages to handle concurrently (default: 1)
-* **PUBLISHER_QUEUE** - optional: name of queue to enqueue new files to (default: klein.prefetch)
+* **UPSTREAM_QUEUE** - optional: name of the queue to consume (default: klein.unarchive)
+* **UPSTREAM_CONCURRENT** - optional: number of messages to handle concurrently (default: 1)
+* **DOWNSTREAM_QUEUE** - optional: name of queue to enqueue new files to (default: klein.prefetch)
 * **AWS_ACCESS_KEY_ID** - optional: AWS access key for use when not run withing AWS 
 * **AWS_SECRET_ACCESS_KEY** - optional: AWS secret key for use when not run withing AWS
 

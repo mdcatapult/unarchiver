@@ -29,9 +29,9 @@ object ConsumerUnarchive extends App with LazyLogging {
   implicit val config: Config = ConfigFactory.load()
 
   /** initialise queues **/
-  val queue: Queue[IncomingMsg] = new Queue[IncomingMsg](config.getString("consumer.queue"))
-  val subscription: SubscriptionRef = queue.subscribe(handle, config.getInt("consumer.concurrent"))
-  val prefetch: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("publisher.queue"))
+  val upstream: Queue[IncomingMsg] = new Queue[IncomingMsg](config.getString("upstream.queue"))
+  val subscription: SubscriptionRef = upstream.subscribe(handle, config.getInt("upstream.concurrent"))
+  val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"))
 
   /** Initialise Mongo **/
   val mongo = new Mongo()
@@ -40,7 +40,7 @@ object ConsumerUnarchive extends App with LazyLogging {
 
   def enqueue(extracted: List[String]): Unit = {
     extracted.foreach(p ⇒ {
-      prefetch.send(PrefetchMsg(source=p))
+      downstream.send(PrefetchMsg(source=p))
     })
   }
 
@@ -49,7 +49,7 @@ object ConsumerUnarchive extends App with LazyLogging {
     val query = equal("_id", id)
     collection.updateOne(query, and(
       set(s"unarchived", unarchived),
-      set(s"klein.unarchive", true)
+      set(s"doclib.unarchived", true)
     )).toFutureOption().andThen({
       case Failure(t) ⇒ logger.error(f"Mongo Update failed: ${id.toString}", t)
       case Success(_) ⇒
