@@ -49,7 +49,7 @@ object ConsumerUnarchive extends App with LazyLogging {
     val query = equal("_id", id)
     collection.updateOne(query, and(
       set(s"unarchived", unarchived),
-      set(s"doclib.unarchived", true)
+      set(config.getString("upstream.queue"), true)
     )).toFutureOption().andThen({
       case Failure(t) ⇒ logger.error(f"Mongo Update failed: ${id.toString}", t)
       case Success(_) ⇒
