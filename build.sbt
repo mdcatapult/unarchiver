@@ -24,6 +24,8 @@ lazy val root = (project in file(".")).
       }
     },
     libraryDependencies ++= Seq(
+      "org.scalactic" %% "scalactic"                  % "3.0.5",
+      "org.scalatest" %% "scalatest"                  % "3.0.5" % "test",
       "com.typesafe.akka" %% "akka-slf4j"         % akkaVersion,
       "ch.qos.logback" % "logback-classic"        % "1.2.3",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
@@ -31,11 +33,10 @@ lazy val root = (project in file(".")).
       "org.typelevel" %% "cats-macros"            % catsVersion,
       "org.typelevel" %% "cats-kernel"            % catsVersion,
       "org.typelevel" %% "cats-core"              % catsVersion,
-      "io.mdcatapult.klein" %% "queue"            % "0.0.2",
-      "io.mdcatapult.klein" %% "mongo"            % "0.0.1",
-      "org.apache.tika" % "tika-core"                 % tikaVersion,
-      "org.apache.tika" % "tika-parsers"              % tikaVersion,
-      "jakarta.ws.rs" % "jakarta.ws.rs-api" % "2.1.4"
+      "io.mdcatapult.doclib" %% "common"          % "0.0.5",
+      "org.apache.tika" % "tika-core"             % tikaVersion,
+      "org.apache.tika" % "tika-parsers"          % tikaVersion,
+      "jakarta.ws.rs" % "jakarta.ws.rs-api"       % "2.1.4"
     ).map(_ exclude("javax.ws.rs", "javax.ws.rs-api")),
     assemblyJarName := "consumer-unarchive.jar",
     assemblyMergeStrategy in assembly := {
