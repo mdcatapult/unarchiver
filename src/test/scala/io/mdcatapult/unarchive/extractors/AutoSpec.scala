@@ -39,9 +39,9 @@ class AutoSpec extends ExtractorSpec with BeforeAndAfter{
 
 
   after {
-    FileUtils.deleteDirectory(new File(config.getString("unarchive.to.path")))
+    val t = new File(config.getString("unarchive.to.path"))
+    if (t.exists()) FileUtils.deleteQuietly(t)
   }
-
 
 
 }
