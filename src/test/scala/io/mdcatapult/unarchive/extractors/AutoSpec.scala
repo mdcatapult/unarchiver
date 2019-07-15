@@ -16,6 +16,7 @@ class AutoSpec extends ExtractorSpec with BeforeAndAfter{
     // ("/test.skyd", 3, "application/zlib"),
     ("/test.tar", 1, "application/x-tar"),
     // ("/test.tar.bz2", 1, "application/x-bzip2"),
+     ("/test.tar.gz", 2, "application/gzip"),
     // ("/test.wsz", 1, "application/zlib"),
     ("/test.xz", 4, "application/x-xz"),
     ("/test.zip", 1, "application/zip"),

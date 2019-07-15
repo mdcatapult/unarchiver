@@ -8,14 +8,14 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, legacy}
 import io.mdcatapult.doclib.models.PrefetchOrigin
 import io.mdcatapult.klein.queue.Queue
-import io.mdcatapult.unarchive.extractors.{Auto, SevenZip}
+import io.mdcatapult.unarchive.extractors.{Auto, Gzip, SevenZip}
 import org.bson.types.ObjectId
 import org.mongodb.scala.{Document, MongoCollection}
 import org.mongodb.scala.bson.{BsonBoolean, BsonNull, BsonValue}
 import org.mongodb.scala.model.Filters.{and, equal}
 import org.mongodb.scala.model.Updates.set
 import org.mongodb.scala.result.UpdateResult
-
+import org.apache.commons.compress.archivers.ArchiveException
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConverters._
@@ -64,6 +64,12 @@ class UnarchiveHandler()(implicit ac: ActorSystem, ex: ExecutionContextExecutor,
 
   def unarchive(document: Document): Option[List[String]] =
     Try(document.getString("mimetype") match {
+      // try as compressed archive, else try as compressed file
+      case "application/gzip" ⇒ Try(new Auto(document.getString("source")).extract) match {
+        case Success(r) => r
+        case Failure(_: ArchiveException) ⇒ new Gzip(document.getString("source")).extract
+        case Failure(e) ⇒ throw e
+      }
       case "application/x-7z-compressed" ⇒ new SevenZip(document.getString("source")).extract
       case _ ⇒ new Auto(document.getString("source")).extract
     }) match {

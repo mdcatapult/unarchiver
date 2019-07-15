@@ -1,11 +1,10 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.io.{BufferedInputStream, FileInputStream}
 import java.nio.file.Paths
 
 import com.typesafe.config.{Config, ConfigFactory}
-import org.apache.commons.compress.archivers.ArchiveInputStream
 import org.scalatest.FlatSpec
+
 import scala.collection.JavaConverters._
 
 class ExtractorSpec extends FlatSpec{
