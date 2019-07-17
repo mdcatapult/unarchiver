@@ -20,37 +20,25 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConverters._
 
-class UnarchiveHandler()(implicit ac: ActorSystem, ex: ExecutionContextExecutor, config: Config, collection: MongoCollection[Document]) extends LazyLogging {
+class UnarchiveHandler(downstream: Queue[PrefetchMsg])(implicit ac: ActorSystem, ex: ExecutionContextExecutor, config: Config, collection: MongoCollection[Document]) extends LazyLogging {
 
-  def enqueueLegacy(extracted: List[String], doc: Document): Unit = {
-    val downstream: Queue[legacy.PrefetchMsg] = new Queue[legacy.PrefetchMsg](config.getString("downstream.queue"))
-    extracted.foreach(p ⇒ {
-      downstream.send(legacy.PrefetchMsg(
-        source = p,
-        origin = doc.getObjectId("_id").toString,
-        tags = Some(doc.getList("tags", classOf[String]).asScala.toList),
-        metadata = Some(doc("metadata").asDocument())
-      ))
-    })
-  }
-
-  def enqueue(extracted: List[String], doc: Document): Unit = {
-    val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"))
+  def enqueue(extracted: List[String], doc: Document): Future[Option[Boolean]] = {
     extracted.foreach(p ⇒ {
       downstream.send(PrefetchMsg(
         source = p,
-        origin = Some(List[PrefetchOrigin]()),
+        origin=Some(List(PrefetchOrigin(
+          scheme = "mongodb",
+          metadata = Some(Map[String, Any](
+            "db" → config.getString("mongo.database"),
+            "collection" → config.getString("mongo.collection"),
+            "_id" → doc.getObjectId("_id").toString))))),
         tags = Some(doc.getList("tags", classOf[String]).asScala.toList),
         metadata = Some(doc("metadata").asDocument())
       ))
     })
-  }
-
-  def forward(extracted: List[String], doc: Document): Future[Option[Any]] = {
-    if (config.getBoolean("doclib.legacy")) enqueueLegacy(extracted, doc)
-    else enqueue(extracted, doc)
     Future.successful(Some(true))
   }
+
 
   def persist(doc: Document, unarchived: List[String]): Future[Option[UpdateResult]] = {
     val id = doc.getObjectId("_id")
@@ -100,7 +88,7 @@ class UnarchiveHandler()(implicit ac: ActorSystem, ex: ExecutionContextExecutor,
       _ ← OptionT(setFlag(msg.id, BsonNull()))
       unarchived ← OptionT.fromOption[Future](unarchive(doc))
       persisted ← OptionT(persist(doc, unarchived))
-      _ ← OptionT(forward(unarchived, doc))
+      _ ← OptionT(enqueue(unarchived, doc))
     } yield (unarchived, persisted)).value.andThen({
       case Success(result) ⇒ result match {
         case Some(r) ⇒

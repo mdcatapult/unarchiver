@@ -26,7 +26,8 @@ object ConsumerUnarchive extends App with LazyLogging {
   implicit val collection: MongoCollection[Document] = mongo.collection
 
   /** initialise queues **/
+  val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"))
   val upstream: Queue[DoclibMsg] = new Queue[DoclibMsg](config.getString("upstream.queue"))
-  val subscription: SubscriptionRef = upstream.subscribe(new UnarchiveHandler().handle, config.getInt("upstream.concurrent"))
+  val subscription: SubscriptionRef = upstream.subscribe(new UnarchiveHandler(downstream).handle, config.getInt("upstream.concurrent"))
 
 }
