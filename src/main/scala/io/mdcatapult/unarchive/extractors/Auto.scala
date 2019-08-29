@@ -32,6 +32,8 @@ class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEnt
     target.getParentFile.mkdirs()
     val ois = new FileOutputStream(target)
     IOUtils.copy(ais, ois)
+    ois.flush()
+    ois.close()
     target.getPath
   }
 
