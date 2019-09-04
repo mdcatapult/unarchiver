@@ -11,11 +11,12 @@ import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.unarchive.extractors.{Auto, Gzip, SevenZip}
 import org.bson.types.ObjectId
 import org.mongodb.scala.{Document, MongoCollection}
-import org.mongodb.scala.bson.{BsonBoolean, BsonNull, BsonValue}
+import org.mongodb.scala.bson.{BsonBoolean, BsonDocument, BsonNull, BsonValue}
 import org.mongodb.scala.model.Filters.{and, equal}
 import org.mongodb.scala.model.Updates.set
 import org.mongodb.scala.result.UpdateResult
 import org.apache.commons.compress.archivers.ArchiveException
+
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConverters._
@@ -23,6 +24,7 @@ import scala.collection.JavaConverters._
 class UnarchiveHandler(downstream: Queue[PrefetchMsg])(implicit ac: ActorSystem, ex: ExecutionContextExecutor, config: Config, collection: MongoCollection[Document]) extends LazyLogging {
 
   def enqueue(extracted: List[String], doc: Document): Future[Option[Boolean]] = {
+    val mdata = if (doc.contains("metadata")) doc("metadata").asDocument() else BsonDocument()
     extracted.foreach(p ⇒ {
       downstream.send(PrefetchMsg(
         source = p,
@@ -33,7 +35,7 @@ class UnarchiveHandler(downstream: Queue[PrefetchMsg])(implicit ac: ActorSystem,
             "collection" → config.getString("mongo.collection"),
             "_id" → doc.getObjectId("_id").toString))))),
         tags = Some(doc.getList("tags", classOf[String]).asScala.toList),
-        metadata = Some(doc("metadata").asDocument())
+        metadata = Some(mdata)
       ))
     })
     Future.successful(Some(true))
