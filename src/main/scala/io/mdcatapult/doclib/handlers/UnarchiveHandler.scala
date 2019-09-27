@@ -1,21 +1,25 @@
 package io.mdcatapult.doclib.handlers
 
+import java.time.LocalDateTime
+
 import akka.actor.ActorSystem
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, legacy}
-import io.mdcatapult.doclib.models.PrefetchOrigin
+import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg}
+import io.mdcatapult.doclib.models.{DoclibFlag, PrefetchOrigin}
+import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.unarchive.extractors.{Auto, Gzip, SevenZip}
 import org.bson.types.ObjectId
 import org.mongodb.scala.{Document, MongoCollection}
-import org.mongodb.scala.bson.{BsonBoolean, BsonDocument, BsonNull, BsonValue}
+import org.mongodb.scala.bson.{BsonArray, BsonBoolean, BsonDocument, BsonNull, BsonValue}
 import org.mongodb.scala.model.Filters.{and, equal}
-import org.mongodb.scala.model.Updates.set
+import org.mongodb.scala.model.Updates.{addToSet, set}
 import org.mongodb.scala.result.UpdateResult
 import org.apache.commons.compress.archivers.ArchiveException
+import org.bson.BsonDocument
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
@@ -23,19 +27,32 @@ import scala.collection.JavaConverters._
 
 class UnarchiveHandler(downstream: Queue[PrefetchMsg])(implicit ac: ActorSystem, ex: ExecutionContextExecutor, config: Config, collection: MongoCollection[Document]) extends LazyLogging {
 
+  lazy val flags = new DoclibFlags(config.getString("doclib.flag"))
+
+  /*
+  Convert BSONArray of key -> value to Map[String, BsonValue]
+   */
+  def documentMetatdataToMap(metadata: BsonValue): Map[String, Any] = {
+    Map(metadata.asArray().toArray.toList map {
+      bd => bd.asInstanceOf[BsonDocument].getString("key").getValue -> bd.asInstanceOf[BsonDocument].get("value").asString()
+    }: _*)
+  }
+
   def enqueue(extracted: List[String], doc: Document): Future[Option[Boolean]] = {
-    val mdata = if (doc.contains("metadata")) doc("metadata").asDocument() else BsonDocument()
+    val mdata = if (doc.contains("metadata")) documentMetatdataToMap(doc("metadata")) else Map[String, Any]()
+    //val mdata: Map[String, Any] = Map[String, Any]()
     extracted.foreach(p ⇒ {
       downstream.send(PrefetchMsg(
         source = p,
-        origin=Some(List(PrefetchOrigin(
+        origin = Some(List(PrefetchOrigin(
           scheme = "mongodb",
           metadata = Some(Map[String, Any](
             "db" → config.getString("mongo.database"),
             "collection" → config.getString("mongo.collection"),
             "_id" → doc.getObjectId("_id").toString))))),
         tags = Some(doc.getList("tags", classOf[String]).asScala.toList),
-        metadata = Some(mdata)
+        metadata = Some(mdata),
+        derivative =  Some(true)
       ))
     })
     Future.successful(Some(true))
@@ -87,10 +104,12 @@ class UnarchiveHandler(downstream: Queue[PrefetchMsg])(implicit ac: ActorSystem,
     (for {
       doc ← OptionT(fetch(msg.id))
       if doc.contains("source")
-      _ ← OptionT(setFlag(msg.id, BsonNull()))
+      started: UpdateResult ← OptionT(flags.start(doc))
+      //_ ← OptionT(setFlag(msg.id, BsonNull()))
       unarchived ← OptionT.fromOption[Future](unarchive(doc))
       persisted ← OptionT(persist(doc, unarchived))
       _ ← OptionT(enqueue(unarchived, doc))
+      _ <- OptionT(flags.end(doc, started.getModifiedCount > 0))
     } yield (unarchived, persisted)).value.andThen({
       case Success(result) ⇒ result match {
         case Some(r) ⇒
