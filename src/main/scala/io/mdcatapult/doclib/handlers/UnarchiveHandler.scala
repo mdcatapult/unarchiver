@@ -124,10 +124,12 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
       _ ← OptionT(enqueue(unarchived, doc))
       _ ← OptionT(flags.end(doc, started.getModifiedCount > 0))
 
-    } yield (unarchived, result)).value.andThen({
+    } yield (unarchived, doc)).value.andThen({
       case Success(result) ⇒ result match {
-        case Some(r) ⇒ logger.info(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
-        case None ⇒ // do nothing as error handling will capture
+        case Some(r) ⇒
+          supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
+          logger.info(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
+        case None ⇒ throw new Exception("Unidentified error occurred")
       }
       case Failure(_) ⇒
         Try(Await.result(fetch(msg.id), Duration.Inf)) match {
