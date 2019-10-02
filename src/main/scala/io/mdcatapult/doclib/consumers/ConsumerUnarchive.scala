@@ -8,6 +8,7 @@ import io.mdcatapult.doclib.messages._
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.doclib.handlers.UnarchiveHandler
+import io.mdcatapult.doclib.models.DoclibDoc
 import io.mdcatapult.doclib.util.MongoCodecs
 import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala.{Document, MongoCollection}
@@ -26,11 +27,14 @@ object ConsumerUnarchive extends App with LazyLogging {
   /** Initialise Mongo **/
   implicit val codecs: CodecRegistry = MongoCodecs.get
   implicit val mongo: Mongo = new Mongo()
-  implicit val collection: MongoCollection[Document] = mongo.collection
+  implicit val collection: MongoCollection[DoclibDoc] = mongo.database.getCollection(config.getString("mongo.collection"))
 
   /** initialise queues **/
-  val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"), Option(config.getString("op-rabbit.topic-exchange-name")))
-  val upstream: Queue[DoclibMsg] = new Queue[DoclibMsg](config.getString("upstream.queue"), Option(config.getString("op-rabbit.topic-exchange-name")))
-  val subscription: SubscriptionRef = upstream.subscribe(new UnarchiveHandler(downstream).handle, config.getInt("upstream.concurrent"))
+  val archiver: Queue[ArchiveMsg] = new Queue[ArchiveMsg](config.getString("doclib.archive.queue"), Some("unarchiver"))
+  val supervisor: Queue[SupervisorMsg] = new Queue[SupervisorMsg](config.getString("doclib.supervisor.queue"), Some("unarchiver"))
+  val prefetch: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"), Some("unarchiver"))
+  val upstream: Queue[DoclibMsg] = new Queue[DoclibMsg](config.getString("upstream.queue"), Some("unarchiver"))
+
+  val subscription: SubscriptionRef = upstream.subscribe(new UnarchiveHandler(prefetch, archiver, supervisor).handle, config.getInt("upstream.concurrent"))
 
 }

@@ -17,12 +17,12 @@ class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZ
     file.getNextEntry
     val content = new Array[Byte](entry.getSize.asInstanceOf[Int])
     file.read(content, 0, content.length)
-
-    val target = new File(s"$targetPath/${entry.getName}")
+    val relPath = s"$targetPath/${entry.getName}"
+    val target = new File(getAbsPath(relPath))
     target.getParentFile.mkdirs()
     val output = new FileOutputStream(target)
     output.write(content)
     output.close()
-    target.getPath
+    relPath
   }
 }

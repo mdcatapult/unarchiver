@@ -5,7 +5,7 @@ import java.io.File
 import org.apache.commons.io.FileUtils
 import org.scalatest.BeforeAndAfter
 
-class SevenZipSpec extends ExtractorSpec with BeforeAndAfter{
+class SevenZipSpec extends TestAbstract with BeforeAndAfter{
 
 
 
@@ -23,7 +23,7 @@ class SevenZipSpec extends ExtractorSpec with BeforeAndAfter{
       it should "extract successfully" in {
         val f = new SevenZip(getPath(file._1))
         f.extract
-        val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"))
+        val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"),Some("unarchived"))
         assert(new File(target).exists())
         assert(new File(target).listFiles().length > 0)
       }
@@ -31,9 +31,9 @@ class SevenZipSpec extends ExtractorSpec with BeforeAndAfter{
   }
 
 
-  after {
-    val t = new File(config.getString("unarchive.to.path"))
-    if (t.exists()) FileUtils.deleteQuietly(t)
-  }
+//  after {
+//    val t = new File(config.getString("unarchive.to.path"))
+//    if (t.exists()) FileUtils.deleteQuietly(t)
+//  }
 
 }

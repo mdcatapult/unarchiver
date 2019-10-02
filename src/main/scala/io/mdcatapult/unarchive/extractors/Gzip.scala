@@ -30,12 +30,13 @@ class Gzip(source: String)(implicit config: Config) extends Extractor[GzipArchiv
 
   def extractFile: GzipArchiveEntry ⇒ String = (a: GzipArchiveEntry) ⇒ {
     val fileName = FilenameUtils.removeExtension(FilenameUtils.getName(source))
-    val target = new File(s"$targetPath/$fileName")
+    val relPath = s"$targetPath/$fileName"
+    val target = new File(getAbsPath(relPath))
     target.getParentFile.mkdirs()
     val ois = new FileOutputStream(target)
     ois.write(a.bytes)
     ois.close()
-    target.getPath
+    relPath
   }
 
 }

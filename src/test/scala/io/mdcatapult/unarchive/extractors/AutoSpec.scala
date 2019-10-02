@@ -5,7 +5,7 @@ import java.io.File
 import org.apache.commons.io.FileUtils
 import org.scalatest.BeforeAndAfter
 
-class AutoSpec extends ExtractorSpec with BeforeAndAfter{
+class AutoSpec extends TestAbstract with BeforeAndAfter{
 
   val files: List[(String, Int, String)] = List[(String, Int, String)](
     // ("/test.bz2", 1, "application/x-bzip2"),
@@ -32,17 +32,17 @@ class AutoSpec extends ExtractorSpec with BeforeAndAfter{
     it should "extract successfully " in {
       val f = new Auto(getPath(file._1))
       f.extract
-      val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"))
+      val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
       assert(new File(target).exists())
       assert(new File(target).listFiles().length > 0)
     }
   }}
 
 
-  after {
-    val t = new File(config.getString("unarchive.to.path"))
-    if (t.exists()) FileUtils.deleteQuietly(t)
-  }
+//  after {
+//    val t = new File(config.getString("unarchive.to.path"))
+//    if (t.exists()) FileUtils.deleteQuietly(t)
+//  }
 
 
 }
