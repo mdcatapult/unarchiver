@@ -13,7 +13,7 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
   val doclibRoot: String = s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/"
 
   def getAbsPath(path: String): String = {
-    Paths.get(s"$doclibRoot/$path").toAbsolutePath.toString
+    Paths.get(s"$doclibRoot/$path/").toAbsolutePath.toString
   }
 
   /**
@@ -44,7 +44,7 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
       case regex(path, file) ⇒
         val c = commonPath(List(targetRoot, path))
         val scrubbed = path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", "")
-        s"$targetRoot/$scrubbed${prefix.getOrElse("")}_$file/"
+        s"$targetRoot/$scrubbed/${prefix.getOrElse("")}_$file/"
       case _ ⇒ source
     }
   }

@@ -16,11 +16,11 @@ class ExtractorSpec extends TestAbstract{
 
   "getTargetPath" should "return a valid path for a local path" in {
     val path = new dummy("local/cheese/stinking-bishop.cz").targetPath
-    assert(path == "local/derivatives/cheese/unarchived_stinking-bishop.cz/")
+    assert(path == "derivatives/local/cheese/unarchived_stinking-bishop.cz/")
   }
   it should "return a valid path for a remote path" in {
     val path = new dummy("remote/http/phpboyscout.uk/assets/test.zip").targetPath
-    assert(path == "local/derivatives/remote/http/phpboyscout.uk/assets/unarchived_test.zip/")
+    assert(path == "derivatives/remote/http/phpboyscout.uk/assets/unarchived_test.zip/")
   }
 
 }

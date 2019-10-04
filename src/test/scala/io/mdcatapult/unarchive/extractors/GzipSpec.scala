@@ -8,7 +8,7 @@ import org.scalatest.BeforeAndAfter
 class GzipSpec extends TestAbstract with BeforeAndAfter{
 
   val files: List[(String, Int, String)] = List[(String, Int, String)](
-    ("/test.gz", 1, "application/gzip")
+    ("local/test.gz", 1, "application/gzip")
   )
 
   files foreach  { file: (String, Int, String) ⇒ {
@@ -22,8 +22,9 @@ class GzipSpec extends TestAbstract with BeforeAndAfter{
       val f = new Gzip(getPath(file._1))
       f.extract
       val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
-      assert(new File(target).exists())
-      assert(new File(target).listFiles().length > 0)
+      val nf = new File(f.getAbsPath(target))
+      assert(nf.exists())
+      assert(nf.listFiles().length > 0)
     }
   }}
 

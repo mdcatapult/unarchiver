@@ -10,7 +10,7 @@ class SevenZipSpec extends TestAbstract with BeforeAndAfter{
 
 
   val files: List[(String, Int)] = List[(String, Int)](
-    ("/test.7z", 1)
+    ("local/test.7z", 1)
   )
 
   files foreach  { file: (String, Int) ⇒ {
@@ -24,8 +24,9 @@ class SevenZipSpec extends TestAbstract with BeforeAndAfter{
         val f = new SevenZip(getPath(file._1))
         f.extract
         val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"),Some("unarchived"))
-        assert(new File(target).exists())
-        assert(new File(target).listFiles().length > 0)
+        val nf = new File(f.getAbsPath(target))
+        assert(nf.exists())
+        assert(nf.listFiles().length > 0)
       }
     }
   }

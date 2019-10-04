@@ -8,13 +8,16 @@ import scala.collection.JavaConverters._
 
 class TestAbstract extends FlatSpec{
 
-  def getPath(file: String): String = Paths.get(getClass.getResource(file).toURI).toString
+  def getPath(file: String): String = s"$file"
 
   implicit val config: Config = ConfigFactory.parseString(
     """
+      |doclib {
+      |  root: "./test-assets"
+      |}
       |unarchive {
       |  to {
-      |    path: "local/derivatives"
+      |    path: "derivatives"
       |  }
       |}
     """.stripMargin)

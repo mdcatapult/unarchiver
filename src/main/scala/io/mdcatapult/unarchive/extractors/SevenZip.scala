@@ -9,7 +9,7 @@ import scala.collection.JavaConverters._
 
 class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZArchiveEntry](source) {
 
-  val file: SevenZFile =  new SevenZFile(new File(source))
+  val file: SevenZFile =  new SevenZFile(new File(getAbsPath(source)))
 
   def getEntries: Iterator[SevenZArchiveEntry] = file.getEntries.iterator.asScala
 
