@@ -14,20 +14,21 @@ class SevenZipSpec extends TestAbstract with BeforeAndAfter{
   )
 
   files foreach  { file: (String, Int) ⇒ {
-      f"The file ${file._1}" should f"contain ${file._2} entries" in {
-        val result = new SevenZip(getPath(file._1)).getEntries
-        assert(result.nonEmpty)
-        assert(result.length == file._2)
-      }
+    val f = new SevenZip(getPath(file._1))
+    val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"),Some("unarchived"))
 
-      it should "extract successfully" in {
-        val f = new SevenZip(getPath(file._1))
-        f.extract
-        val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"),Some("unarchived"))
-        val nf = new File(f.getAbsPath(target))
-        assert(nf.exists())
-        assert(nf.listFiles().length > 0)
-      }
+    f"The file ${file._1}" should f"contain ${file._2} entries" in {
+      val result = new SevenZip(getPath(file._1)).getEntries
+      assert(result.nonEmpty)
+      assert(result.length == file._2)
+    }
+
+    it should "extract successfully to ${f.getAbsPath(target)}" in {
+      f.extract
+      val nf = new File(f.getAbsPath(target))
+      assert(nf.exists())
+      assert(nf.listFiles().length > 0)
+    }
     }
   }
 

@@ -23,16 +23,17 @@ class AutoSpec extends TestAbstract with BeforeAndAfter{
   )
 
   files foreach  { file: (String, Int, String) ⇒ {
+    val f = new Auto(getPath(file._1))
+    val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
+
     f"The file ${file._1}" should f"contain ${file._2} entries" in {
-      val result = new Auto(getPath(file._1)).getEntries
+      val result = f.getEntries
       assert(result.nonEmpty)
       assert(result.length == file._2)
     }
 
-    it should "extract successfully " in {
-      val f = new Auto(getPath(file._1))
+    it should s"extract successfully to ${f.getAbsPath(target)}" in {
       f.extract
-      val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
       val nf = new File(f.getAbsPath(target))
       assert(nf.exists())
       assert(nf.listFiles().length > 0)
