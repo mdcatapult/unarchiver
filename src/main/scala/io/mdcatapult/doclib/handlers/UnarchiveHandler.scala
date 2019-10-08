@@ -67,7 +67,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
   def persist(doc: DoclibDoc, unarchived: List[String]): Future[List[Derivative]] =
     collection.updateOne(equal("_id", doc._id),
       addEachToSet("derivatives", unarchived.map(path ⇒ Derivative("unarchived", path)):_*),
-    ).toFutureOption().map(_ ⇒ doc.derivatives.getOrElse(List())
+    ).toFutureOption().map(_ ⇒ doc.derivatives.getOrElse(List[Derivative]())
       .filter(d ⇒ d.`type` == "unarchived" && !unarchived.contains(d.path)))
 
 
