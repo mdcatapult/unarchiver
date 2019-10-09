@@ -3,8 +3,6 @@ package io.mdcatapult.unarchive.extractors
 import java.nio.file.Paths
 
 import com.typesafe.config.Config
-import org.apache.commons.io.FilenameUtils
-import org.mongodb.scala.Document
 
 abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) {
 
@@ -13,7 +11,7 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
   val doclibRoot: String = s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/"
 
   def getAbsPath(path: String): String = {
-    Paths.get(s"$doclibRoot/$path/").toAbsolutePath.toString
+    Paths.get(doclibRoot, path).toAbsolutePath.toString
   }
 
   /**
@@ -44,7 +42,11 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
       case regex(path, file) ⇒
         val c = commonPath(List(targetRoot, path))
         val scrubbed = path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", "")
-        s"$targetRoot/$scrubbed/${prefix.getOrElse("")}_$file/"
+        val targetPath = scrubbed match {
+          case path if path.startsWith(config.getString("doclib.local.target-dir")) => path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", "")
+          case path if path.startsWith(config.getString("doclib.remote.target-dir")) => path
+        }
+        Paths.get(config.getString("doclib.local.target-dir"), targetRoot, targetPath, s"${prefix.getOrElse("")}_$file").toString
       case _ ⇒ source
     }
   }
