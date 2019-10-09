@@ -19,6 +19,7 @@ lazy val root = (project in file(".")).
     resolvers         ++= Seq(
       "MDC Nexus Releases" at "http://nexus.mdcatapult.io/repository/maven-releases/",
       "MDC Nexus Snapshots" at "http://nexus.mdcatapult.io/repository/maven-snapshots/"),
+    updateOptions := updateOptions.value.withLatestSnapshots(false),
     credentials       += {
       val nexusPassword = sys.env.get("NEXUS_PASSWORD")
       if ( nexusPassword.nonEmpty ) {
