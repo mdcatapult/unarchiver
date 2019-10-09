@@ -16,7 +16,7 @@ class AutoSpec extends TestAbstract with BeforeAndAfter{
     // ("local/test.skyd", 3, "application/zlib"),
     ("local/test.tar", 1, "application/x-tar"),
     // ("local/test.tar.bz2", 1, "application/x-bzip2"),
-     ("local/test.tar.gz", 2, "application/gzip"),
+    ("local/test.tar.gz", 2, "application/gzip"),
     // ("local/test.wsz", 1, "application/zlib"),
     ("local/test.xz", 4, "application/x-xz"),
     ("local/test.zip", 1, "application/zip"),
@@ -25,12 +25,6 @@ class AutoSpec extends TestAbstract with BeforeAndAfter{
   files foreach  { file: (String, Int, String) ⇒ {
     val f = new Auto(getPath(file._1))
     val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
-
-    f"The file ${file._1}" should f"contain ${file._2} entries" in {
-      val result = f.getEntries
-      assert(result.nonEmpty)
-      assert(result.length == file._2)
-    }
 
     it should s"extract successfully to ${f.getAbsPath(target)}" in {
       f.extract

@@ -14,6 +14,12 @@ class TestAbstract extends FlatSpec{
     """
       |doclib {
       |  root: "./test-assets"
+      |  local: {
+      |    target-dir: "local"
+      |  }
+      |  remote: {
+      |    target-dir: "remote"
+      |  }
       |}
       |unarchive {
       |  to {
