@@ -19,6 +19,7 @@ class TestAbstract extends FlatSpec with DirectoryDelete with BeforeAndAfterAll 
       |  root: "./test-assets"
       |  local: {
       |    target-dir: "local"
+      |    temp-dir: "ingress"
       |  }
       |  remote: {
       |    target-dir: "remote"
@@ -33,7 +34,7 @@ class TestAbstract extends FlatSpec with DirectoryDelete with BeforeAndAfterAll 
 
   override def afterAll(): Unit = {
     // These may or may not exist but are all removed anyway
-    deleteDirectories(List((pwd/"test-assets/local/derivatives")))
+    deleteDirectories(List((pwd/"test-assets/ingress")))
   }
 
 }

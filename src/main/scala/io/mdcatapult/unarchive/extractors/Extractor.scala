@@ -46,7 +46,7 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
           case path if path.startsWith(config.getString("doclib.local.target-dir")) => path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", "")
           case path if path.startsWith(config.getString("doclib.remote.target-dir")) => path
         }
-        Paths.get(config.getString("doclib.local.target-dir"), targetRoot, targetPath, s"${prefix.getOrElse("")}_$file").toString
+        Paths.get(config.getString("doclib.local.temp-dir"), targetRoot, targetPath, s"${prefix.getOrElse("")}_$file").toString
       case _ ⇒ source
     }
   }

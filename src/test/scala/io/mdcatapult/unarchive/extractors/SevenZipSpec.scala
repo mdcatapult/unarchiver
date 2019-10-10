@@ -23,7 +23,7 @@ class SevenZipSpec extends TestAbstract with BeforeAndAfter{
       assert(result.length == file._2)
     }
 
-    it should "extract successfully to ${f.getAbsPath(target)}" in {
+    it should f"extract successfully to ${f.getAbsPath(target)}" in {
       f.extract
       val nf = new File(f.getAbsPath(target))
       assert(nf.exists())
