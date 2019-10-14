@@ -14,7 +14,7 @@ lazy val root = (project in file(".")).
     name              := "consumer-unarchive",
     version           := "0.1",
     scalaVersion      := "2.12.8",
-    coverageEnabled   := true,
+    coverageEnabled   := false,
     scalacOptions     += "-Ypartial-unification",
     resolvers         ++= Seq(
       "MDC Nexus Releases" at "http://nexus.mdcatapult.io/repository/maven-releases/",
