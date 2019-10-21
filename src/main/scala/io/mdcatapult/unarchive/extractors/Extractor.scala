@@ -1,12 +1,18 @@
 package io.mdcatapult.unarchive.extractors
 
+import java.nio.file.Paths
+
 import com.typesafe.config.Config
-import org.apache.commons.io.FilenameUtils
 
 abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) {
 
 
-  lazy val targetPath: String = getTargetPath(source, config.getString("unarchive.to.path"))
+  lazy val targetPath: String = getTargetPath(source, config.getString("unarchive.to.path"), Some("unarchived"))
+  val doclibRoot: String = s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/"
+
+  def getAbsPath(path: String): String = {
+    Paths.get(doclibRoot, path).toAbsolutePath.toString
+  }
 
   /**
     * determines common root paths for two path string
@@ -29,12 +35,20 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
     * @param source String
     * @return String full path to new target
     */
-  def getTargetPath(source: String, base: String): String = {
+  def getTargetPath(source: String, base: String, prefix: Option[String] = None): String = {
     val targetRoot = base.replaceAll("/+$", "")
-    val sourceName = FilenameUtils.removeExtension(source)
-    val c = commonPath(List(targetRoot, sourceName))
-    val scrubbed = sourceName.replaceAll(s"^$c", "").replaceAll("^/+|/+$", "")
-    s"$targetRoot/$scrubbed/"
+    val regex = """(.*)/(.*)$""".r
+    source match {
+      case regex(path, file) ⇒
+        val c = commonPath(List(targetRoot, path))
+        val scrubbed = path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", "")
+        val targetPath = scrubbed match {
+          case path if path.startsWith(config.getString("doclib.local.target-dir")) => path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", "")
+          case path if path.startsWith(config.getString("doclib.remote.target-dir")) => path
+        }
+        Paths.get(config.getString("doclib.local.temp-dir"), targetRoot, targetPath, s"${prefix.getOrElse("")}_$file").toString
+      case _ ⇒ source
+    }
   }
 
 

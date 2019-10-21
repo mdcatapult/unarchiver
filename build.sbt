@@ -5,6 +5,7 @@ lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.20"
+lazy val doclibCommonVersion = "0.0.17-SNAPSHOT"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
@@ -13,8 +14,12 @@ lazy val root = (project in file(".")).
     name              := "consumer-unarchive",
     version           := "0.1",
     scalaVersion      := "2.12.8",
+    coverageEnabled   := false,
     scalacOptions     += "-Ypartial-unification",
-    resolvers         ++= Seq("MDC Nexus" at "http://nexus.mdcatapult.io/repository/maven-releases/"),
+    resolvers         ++= Seq(
+      "MDC Nexus Releases" at "http://nexus.mdcatapult.io/repository/maven-releases/",
+      "MDC Nexus Snapshots" at "http://nexus.mdcatapult.io/repository/maven-snapshots/"),
+    updateOptions := updateOptions.value.withLatestSnapshots(false),
     credentials       += {
       val nexusPassword = sys.env.get("NEXUS_PASSWORD")
       if ( nexusPassword.nonEmpty ) {
@@ -33,7 +38,7 @@ lazy val root = (project in file(".")).
       "org.typelevel" %% "cats-macros"                % catsVersion,
       "org.typelevel" %% "cats-kernel"                % catsVersion,
       "org.typelevel" %% "cats-core"                  % catsVersion,
-      "io.mdcatapult.doclib" %% "common"              % "0.0.7",
+      "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
       "org.apache.tika" % "tika-core"                 % tikaVersion,
       "org.apache.tika" % "tika-parsers"              % tikaVersion,
       "jakarta.ws.rs" % "jakarta.ws.rs-api"           % "2.1.4"
@@ -53,6 +58,7 @@ lazy val root = (project in file(".")).
       case PathList(xs @ _*) if xs.last == "module-info.class" => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == "public-suffix-list.txt" => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
+      case "META-INF/jpms.args" => MergeStrategy.discard
       case n if n.startsWith("application.conf") => MergeStrategy.concat
       case n if n.endsWith(".conf") => MergeStrategy.concat
       case meta(_) => MergeStrategy.first

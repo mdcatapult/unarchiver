@@ -18,7 +18,7 @@ class GzipArchiveEntry(name: String, cis: CompressorInputStream) extends Archive
 
 class Gzip(source: String)(implicit config: Config) extends Extractor[GzipArchiveEntry](source) {
 
-  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(source))
+  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(getAbsPath(source)))
   val cis: CompressorInputStream = getCompressorInputStream
 
   def getCompressorInputStream: CompressorInputStream = new CompressorStreamFactory().createCompressorInputStream(input)
@@ -30,12 +30,13 @@ class Gzip(source: String)(implicit config: Config) extends Extractor[GzipArchiv
 
   def extractFile: GzipArchiveEntry ⇒ String = (a: GzipArchiveEntry) ⇒ {
     val fileName = FilenameUtils.removeExtension(FilenameUtils.getName(source))
-    val target = new File(s"$targetPath/$fileName")
+    val relPath = s"$targetPath/$fileName"
+    val target = new File(getAbsPath(relPath))
     target.getParentFile.mkdirs()
     val ois = new FileOutputStream(target)
     ois.write(a.bytes)
     ois.close()
-    target.getPath
+    relPath
   }
 
 }

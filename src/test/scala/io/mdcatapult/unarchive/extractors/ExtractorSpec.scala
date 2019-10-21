@@ -7,11 +7,20 @@ import org.scalatest.FlatSpec
 
 import scala.collection.JavaConverters._
 
-class ExtractorSpec extends FlatSpec{
+class ExtractorSpec extends TestAbstract{
 
-  def getPath(file: String): String = Paths.get(getClass.getResource(file).toURI).toString
+  class dummy[T](source: String) extends Extractor[T](source) {
+    def getEntries: Iterator[T] = ???
+    def extractFile: T ⇒ String = ???
+  }
 
-  implicit val config: Config = ConfigFactory.parseMap(Map[String, Any](
-    "unarchive.to.path" → "./test"
-  ).asJava)
+  "getTargetPath" should "return a valid path for a local path" in {
+    val path = new dummy("local/cheese/stinking-bishop.cz").targetPath
+    assert(path == "ingress/derivatives/cheese/unarchived_stinking-bishop.cz")
+  }
+  it should "return a valid path for a remote path" in {
+    val path = new dummy("remote/http/phpboyscout.uk/assets/test.zip").targetPath
+    assert(path == "ingress/derivatives/remote/http/phpboyscout.uk/assets/unarchived_test.zip")
+  }
+
 }
