@@ -8,6 +8,7 @@ stages:
 
 variables:
   SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
+  CI_DEBUG_TRACE: "true"
 
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
@@ -89,6 +90,8 @@ release:
     - git config --global user.email "${GIT_RELEASE_EMAIL}"
     - git config --global user.name "${GIT_RELEASE_USER}"
   script:
+    - git remote show
+    - git remote shor origin
     - git checkout master
     - git pull origin master
     - sbt "release with-defaults"
