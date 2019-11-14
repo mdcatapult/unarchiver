@@ -1,3 +1,8 @@
+import java.io.PrintWriter
+
+import sbtrelease.ReleaseStateTransformations._
+import sbtrelease.{Vcs, Version}
+
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.5.18"
 lazy val catsVersion = "1.5.0-RC1"
@@ -5,14 +10,13 @@ lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.20"
-lazy val doclibCommonVersion = "0.0.17-SNAPSHOT"
+lazy val doclibCommonVersion = "0.0.23"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
 lazy val root = (project in file(".")).
   settings(
     name              := "consumer-unarchive",
-    version           := "0.1",
     scalaVersion      := "2.12.8",
     coverageEnabled   := false,
     scalacOptions     += "-Ypartial-unification",
@@ -43,7 +47,10 @@ lazy val root = (project in file(".")).
       "org.apache.tika" % "tika-parsers"              % tikaVersion,
       "jakarta.ws.rs" % "jakarta.ws.rs-api"           % "2.1.4"
     ).map(_ exclude("javax.ws.rs", "javax.ws.rs-api")),
-    assemblyJarName := "consumer-unarchive.jar",
+  )
+  .settings(
+    assemblyJarName := "consumer.jar",
+    test in assembly := {},
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
@@ -65,5 +72,62 @@ lazy val root = (project in file(".")).
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
-    }
+    })
+  .settings(
+    releaseProcess := Seq[ReleaseStep](
+      checkSnapshotDependencies,
+      inquireVersions,
+      runClean,
+      runTest,
+      setReleaseVersion,
+      { st: State ⇒
+        val extracted: Extracted = Project.extract( st )
+        val vcs: Vcs = extracted.get(releaseVcs)
+          .getOrElse(sys.error("Aborting release. Working directory is not a repository of a recognized VCS."))
+        st.put(AttributeKey[String]("hash"), vcs.currentHash.slice(0, 8))
+      },
+      { st: State ⇒
+        // write version.conf
+        st.get(ReleaseKeys.versions) match {
+          case Some(v) ⇒ writeVersionFile(v._1, st.get(AttributeKey[String]("hash")))
+          case None ⇒ sys.error("Aborting release. no version number present.")
+        }
+        st
+      },
+      commitReleaseVersion,
+      tagRelease,
+      { st: State =>
+        val extracted = Project.extract(st)
+        val ref = extracted.get(thisProjectRef)
+        extracted.runAggregated(assembly in Global in ref, st)
+      },
+
+      setNextVersion,
+      { st: State ⇒
+        // write version.conf
+        st.get(ReleaseKeys.versions) match {
+          case Some(v) ⇒ writeVersionFile(v._2)
+          case None ⇒ sys.error("Aborting release. no version number present.")
+        }
+        st
+      },
+      commitNextVersion,
+      pushChanges
+    )
   )
+
+def writeVersionFile(version: String, hash: Option[String] = None): Unit = {
+  val ver: Version = Version(version).get
+  val writer = new PrintWriter(new File("src/main/resources/version.conf"))
+  writer.write(
+    s"""version {
+       |  number = "${ver.string}",
+       |  major = ${ver.major},
+       |  minor =  ${ver.subversions.head},
+       |  patch = ${ver.subversions(1)},
+       |  hash =  "${hash.getOrElse(ver.qualifier.get.replaceAll("^-", ""))}"
+       |  hash =  $${?VERSION_HASH}
+       |}
+       |""".stripMargin)
+  writer.close()
+}

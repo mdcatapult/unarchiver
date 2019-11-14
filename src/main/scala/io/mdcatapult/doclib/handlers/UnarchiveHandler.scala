@@ -6,24 +6,18 @@ import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
-import io.mdcatapult.doclib.models.metadata.MetaString
+import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
 import io.mdcatapult.doclib.util.DoclibFlags
-import io.mdcatapult.klein.queue.{Queue, Sendable}
+import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.unarchive.extractors.{Auto, Gzip, SevenZip}
 import org.apache.commons.compress.archivers.ArchiveException
-import org.bson.BsonDocument
 import org.bson.types.ObjectId
-import org.mongodb.scala.bson.conversions.Bson
-import org.mongodb.scala.bson.{BsonArray, BsonValue}
+import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.Updates._
 import org.mongodb.scala.result.UpdateResult
-import org.mongodb.scala.{Document, MongoCollection}
-import play.api.libs.json.{JsSuccess, Json}
 
-import scala.collection.JavaConverters._
-import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
@@ -37,8 +31,9 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
 
   lazy val flags = new DoclibFlags(config.getString("doclib.flag"))
 
-
   def enqueue(extracted: List[String], doc: DoclibDoc): Future[Option[Boolean]] = {
+    // Let prefetch know that it is an unarchived derivative
+    val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "unarchived"))
     extracted.foreach(path ⇒ {
       prefetch.send(PrefetchMsg(
         source = path,
@@ -50,7 +45,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
             MetaString("_id", doc._id.toHexString)))
         ))),
         tags = doc.tags,
-        metadata = doc.metadata,
+        metadata = Some(doc.metadata.getOrElse(Nil) ::: derivativeMetadata),
         derivative =  Some(true)
       ))
     })

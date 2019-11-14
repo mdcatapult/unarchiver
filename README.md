@@ -7,12 +7,14 @@ A document library specific consumer to extract files and push the resulting fil
 This is a scala application that runs in side the JVM
 
 ```bash
-java -jar consumer-unarchive.jar
+java $JAVA_OPTS -jar consumer.jar start --config
 ```
 
 ## Runtime Configuration
 
-The app allows runtime configuration via environment variables
+The app allows runtime configuration via environment variables. 
+
+It also allows for a --config flag to allow injection of common configs that will override the default config and environment variable driven config
 
 * **MONGO_USERNAME** - login username for mongodb
 * **MONGO_PASSWORD** - login password for mongodb
@@ -33,7 +35,3 @@ The app allows runtime configuration via environment variables
 * **AWS_ACCESS_KEY_ID** - optional: AWS access key for use when not run withing AWS 
 * **AWS_SECRET_ACCESS_KEY** - optional: AWS secret key for use when not run withing AWS
 
-## Results
-
-The results of the consumer will provide an array of all extracted  files which will be stored in the property 
-`unarchived` along with a flag at `klein.unarchive`
