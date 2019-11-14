@@ -9,3 +9,5 @@ project/target
 
 *.cfx
 /test-assets/derivatives
+
+*.local.conf
