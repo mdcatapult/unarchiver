@@ -5,14 +5,13 @@ lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.20"
-lazy val doclibCommonVersion = "0.0.17-SNAPSHOT"
+lazy val doclibCommonVersion = "0.0.23"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
 lazy val root = (project in file(".")).
   settings(
     name              := "consumer-unarchive",
-    version           := "0.1",
     scalaVersion      := "2.12.8",
     coverageEnabled   := false,
     scalacOptions     += "-Ypartial-unification",
@@ -43,7 +42,10 @@ lazy val root = (project in file(".")).
       "org.apache.tika" % "tika-parsers"              % tikaVersion,
       "jakarta.ws.rs" % "jakarta.ws.rs-api"           % "2.1.4"
     ).map(_ exclude("javax.ws.rs", "javax.ws.rs-api")),
-    assemblyJarName := "consumer-unarchive.jar",
+  )
+  .settings(
+    assemblyJarName := "consumer.jar",
+    test in assembly := {},
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
@@ -65,5 +67,4 @@ lazy val root = (project in file(".")).
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
-    }
-  )
+    })
