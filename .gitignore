@@ -11,3 +11,5 @@ project/target
 /test-assets/derivatives
 
 *.local.conf
+
+/sbt-cache*
