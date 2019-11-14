@@ -8,6 +8,7 @@ stages:
 
 variables:
   SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
+  CI_DEBUG_TRACE: "true"
 
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
@@ -37,6 +38,9 @@ test:
     name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
     paths:
       - target/scala-2.12/scoverage-report/
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
 assemble:
   stage: build
@@ -89,6 +93,8 @@ release:
     - git config --global user.email "${GIT_RELEASE_EMAIL}"
     - git config --global user.name "${GIT_RELEASE_USER}"
   script:
+    - git remote show
+    - git remote show origin master
     - git checkout master
     - git pull origin master
     - sbt "release with-defaults"
@@ -108,6 +114,9 @@ release:
       - target/scala-2.12/consumer.jar
   only:
     - master
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
 
 publish-master:
@@ -128,3 +137,6 @@ publish-master:
     - docker push "$CI_REGISTRY_IMAGE"
   only:
     - master
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
