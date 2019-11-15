@@ -48,7 +48,10 @@ assemble:
     paths:
       - target/scala-2.12/consumer.jar
   except:
-    - master
+    refs:
+      - master
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
 publish:
   stage: publish
@@ -66,8 +69,10 @@ publish:
       .
     - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
   except:
-    - master
-
+    refs:
+      - master
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
 release:
   stage: build
@@ -108,7 +113,9 @@ release:
       - target/scala-2.12/consumer.jar
   only:
     - master
-
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
 publish-master:
   stage: publish
@@ -128,3 +135,6 @@ publish-master:
     - docker push "$CI_REGISTRY_IMAGE"
   only:
     - master
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
