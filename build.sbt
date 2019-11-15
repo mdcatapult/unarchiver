@@ -142,7 +142,7 @@ def commitAll = { (st: State, commitMessage: TaskKey[String]) ⇒
   newState
 }
 
-private def toProcessLogger(st: State): ProcessLogger = new ProcessLogger {
+def toProcessLogger(st: State): ProcessLogger = new ProcessLogger {
   override def err(s: => String): Unit = st.log.info(s)
   override def out(s: => String): Unit = st.log.info(s)
   override def buffer[T](f: => T): T = st.log.buffer(f)
