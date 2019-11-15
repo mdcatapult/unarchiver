@@ -8,7 +8,6 @@ stages:
 
 variables:
   SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
-  CI_DEBUG_TRACE: "true"
 
 
 cache:
@@ -132,7 +131,7 @@ publish-master:
   before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
   script:
-    - export $RELEASE_TAG=$(find .git/refs/tags/ -type f | sed 's#^.git/refs/tags/##' | sort | tail -n1 | tr -d "\n")
+    - export RELEASE_TAG=$(find .git/refs/tags/ -type f | sed 's#^.git/refs/tags/##' | sort | tail -n1 | tr -d "\n")
     - >
       docker build --pull
       --build-arg NEXUS_PASSWORD=$NEXUS_PASSWORD
