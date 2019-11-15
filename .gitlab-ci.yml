@@ -28,6 +28,10 @@ before_script:
   - sbt sbtVersion
 
 
+except:
+  variables:
+    - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
+
 test:
   stage: test
   image: openjdk:11
@@ -37,6 +41,9 @@ test:
     name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
     paths:
       - target/scala-2.12/scoverage-report/
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
 assemble:
   stage: build
