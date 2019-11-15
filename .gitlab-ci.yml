@@ -112,7 +112,6 @@ release:
     - git status
     - git rebase master
     - git push origin develop
-    - echo 'export RELEASE_TAG = "${echo "$RELEASE_TAG"}"' >> variables
   artifacts:
     name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
     paths:
