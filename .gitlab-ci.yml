@@ -8,6 +8,8 @@ stages:
 
 variables:
   SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
+  CI_DEBUG_TRACE: "true"
+
 
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
