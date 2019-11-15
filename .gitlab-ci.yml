@@ -8,7 +8,6 @@ stages:
 
 variables:
   SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
-  CI_DEBUG_TRACE: "true"
 
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
@@ -52,7 +51,10 @@ assemble:
     paths:
       - target/scala-2.12/consumer.jar
   except:
-    - master
+    refs:
+      - master
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
 publish:
   stage: publish
@@ -70,8 +72,10 @@ publish:
       .
     - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG"
   except:
-    - master
-
+    refs:
+      - master
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
 release:
   stage: build
@@ -93,8 +97,6 @@ release:
     - git config --global user.email "${GIT_RELEASE_EMAIL}"
     - git config --global user.name "${GIT_RELEASE_USER}"
   script:
-    - git remote show
-    - git remote show origin master
     - git checkout master
     - git pull origin master
     - sbt "release with-defaults"
@@ -118,7 +120,6 @@ release:
     variables:
       - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
 
-
 publish-master:
   stage: publish
   image: docker:latest
@@ -126,13 +127,16 @@ publish-master:
     - release
   before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - apk add --no-cache bash git openssh-client
+    - git fetch
+    - export RELEASE_TAG=$(git describe --abbrev=0)
   script:
     - >
       docker build --pull
       --build-arg NEXUS_PASSWORD=$NEXUS_PASSWORD
       --build-arg VERSION_HASH=$CI_COMMIT_SHORT_SHA
       -t "$CI_REGISTRY_IMAGE"
-      -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+      -t "$CI_REGISTRY_IMAGE:$RELEASE_TAG"
       .
     - docker push "$CI_REGISTRY_IMAGE"
   only:
