@@ -2,6 +2,10 @@ import java.io.PrintWriter
 
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease.{Vcs, Version}
+import sbt._
+import Keys._
+import sbt.complete.DefaultParsers._
+import scala.sys.process.ProcessLogger
 
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.5.18"
@@ -94,14 +98,13 @@ lazy val root = (project in file(".")).
         }
         st
       },
-      commitReleaseVersion,
+      commitAllRelease,
       tagRelease,
       { st: State =>
         val extracted = Project.extract(st)
         val ref = extracted.get(thisProjectRef)
         extracted.runAggregated(assembly in Global in ref, st)
       },
-
       setNextVersion,
       { st: State ⇒
         // write version.conf
@@ -111,10 +114,39 @@ lazy val root = (project in file(".")).
         }
         st
       },
-      commitNextVersion,
+      commitAllNext,
       pushChanges
     )
   )
+
+def commitAllRelease = {st: State => commitAll(st, releaseCommitMessage)}
+def commitAllNext = {st: State => commitAll(st, releaseNextCommitMessage)}
+
+def commitAll = { (st: State, commitMessage: TaskKey[String]) ⇒
+  val log = toProcessLogger(st)
+  val extract = Project.extract(st)
+  val vcs: Vcs = extract.get(releaseVcs)
+    .getOrElse(sys.error("Aborting release. Working directory is not a repository of a recognized VCS."))
+  val sign = extract.get(releaseVcsSign)
+  val signOff = extract.get(releaseVcsSignOff)
+  vcs.add("./*") !! log
+  val status = vcs.status.!!.trim
+  val newState = if (status.nonEmpty) {
+    val (state, msg) = extract.runTask(commitMessage, st)
+    vcs.commit(msg, sign, signOff) ! log
+    state
+  } else {
+    // nothing to commit. this happens if the version.sbt file hasn't changed.
+    st
+  }
+  newState
+}
+
+private def toProcessLogger(st: State): ProcessLogger = new ProcessLogger {
+  override def err(s: => String): Unit = st.log.info(s)
+  override def out(s: => String): Unit = st.log.info(s)
+  override def buffer[T](f: => T): T = st.log.buffer(f)
+}
 
 def writeVersionFile(version: String, hash: Option[String] = None): Unit = {
   val ver: Version = Version(version).get
