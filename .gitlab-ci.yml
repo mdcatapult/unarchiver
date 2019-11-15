@@ -111,6 +111,7 @@ release:
     - git status
     - git rebase master
     - git push origin develop
+    - echo 'export RELEASE_TAG = "${echo "$RELEASE_TAG"}"' >> variables
   artifacts:
     name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
     paths:
@@ -129,7 +130,7 @@ publish-master:
   before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
   script:
-    - export RELEASE_TAG=$(git describe --abbrev=0)
+    - export $RELEASE_TAG=$(find .git/refs/tags/ -type f -printf "%f\n" | sort | tail -n1 | tr -d "\n")
     - >
       docker build --pull
       --build-arg NEXUS_PASSWORD=$NEXUS_PASSWORD
