@@ -84,12 +84,7 @@ lazy val root = (project in file(".")).
       runClean,
       runTest,
       setReleaseVersion,
-      { st: State ⇒
-        val extracted: Extracted = Project.extract( st )
-        val vcs: Vcs = extracted.get(releaseVcs)
-          .getOrElse(sys.error("Aborting release. Working directory is not a repository of a recognized VCS."))
-        st.put(AttributeKey[String]("hash"), vcs.currentHash.slice(0, 8))
-      },
+      getShortSha,
       { st: State ⇒
         // write version.conf
         st.get(ReleaseKeys.versions) match {
@@ -100,11 +95,7 @@ lazy val root = (project in file(".")).
       },
       commitAllRelease,
       tagRelease,
-      { st: State =>
-        val extracted = Project.extract(st)
-        val ref = extracted.get(thisProjectRef)
-        extracted.runAggregated(assembly in Global in ref, st)
-      },
+      runAssembly,
       setNextVersion,
       { st: State ⇒
         // write version.conf
@@ -119,14 +110,27 @@ lazy val root = (project in file(".")).
     )
   )
 
-def commitAllRelease = {st: State => commitAll(st, releaseCommitMessage)}
-def commitAllNext = {st: State => commitAll(st, releaseNextCommitMessage)}
+
+def getShortSha: State ⇒ State = { st: State ⇒
+  val extracted: Extracted = Project.extract( st )
+  val vcs: Vcs = extracted.get(releaseVcs)
+    .getOrElse(sys.error("Aborting release. Working directory is not a repository of a recognized VCS."))
+  st.put(AttributeKey[String]("hash"), vcs.currentHash.slice(0, 8))
+}
+
+def runAssembly = ReleaseStep(action = (st: State) ⇒ {
+  val extracted = Project.extract(st)
+  val ref = extracted.get(thisProjectRef)
+  extracted.runAggregated(assembly in Global in ref, st)
+})
+
+def commitAllRelease = ReleaseStep(action = (st: State) => commitAll(st, releaseCommitMessage))
+def commitAllNext = ReleaseStep(action = (st: State) => commitAll(st, releaseNextCommitMessage))
 
 def commitAll = { (st: State, commitMessage: TaskKey[String]) ⇒
-  val log = toProcessLogger(st)
+  val log = toTempProcessLogger(st)
   val extract = Project.extract(st)
-  val vcs: Vcs = extract.get(releaseVcs)
-    .getOrElse(sys.error("Aborting release. Working directory is not a repository of a recognized VCS."))
+  val vcs = getVcs(st)
   val sign = extract.get(releaseVcsSign)
   val signOff = extract.get(releaseVcsSignOff)
   vcs.add("./*") !! log
@@ -142,7 +146,13 @@ def commitAll = { (st: State, commitMessage: TaskKey[String]) ⇒
   newState
 }
 
-def toProcessLogger(st: State): ProcessLogger = new ProcessLogger {
+def getVcs(st: State): Vcs = {
+  val extracted: Extracted = Project.extract( st )
+  extracted.get(releaseVcs)
+    .getOrElse(sys.error("Aborting release. Working directory is not a repository of a recognized VCS."))
+}
+
+def toTempProcessLogger(st: State): ProcessLogger = new ProcessLogger {
   override def err(s: => String): Unit = st.log.info(s)
   override def out(s: => String): Unit = st.log.info(s)
   override def buffer[T](f: => T): T = st.log.buffer(f)
