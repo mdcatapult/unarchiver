@@ -130,7 +130,7 @@ publish-master:
   before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
     - apk add --no-cache bash git openssh-client
-#    - export RELEASE_TAG=$(find .git/refs/tags/ -type f | sed 's#^.git/refs/tags/##' | sort | tail -n1 | tr -d "\n")
+    - git fetch
     - export RELEASE_TAG=$(git describe --abbrev=0)
   script:
     - >
