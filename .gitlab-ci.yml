@@ -9,7 +9,6 @@ stages:
 variables:
   SBT_OPTS: "-Dsbt.global.base=sbt-cache/.sbtboot -Dsbt.boot.directory=sbt-cache/.boot -Dsbt.ivy.home=sbt-cache/.ivy"
 
-
 cache:
   key: "${CI_COMMIT_REF_SLUG}"
   untracked: false
@@ -109,7 +108,6 @@ release:
       --request POST https://gitlab.mdcatapult.io/api/v4/projects/$CI_PROJECT_ID/releases
     - git checkout develop
     - git pull
-    - git status
     - git rebase master
     - git push origin develop
   artifacts:
