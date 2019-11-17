@@ -123,7 +123,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
       case Success(result) ⇒ result match {
         case Some(r) ⇒
           supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
-          logger.info(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
+          println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
         case None ⇒ throw new Exception("Unidentified error occurred")
       }
       case Failure(_) ⇒
