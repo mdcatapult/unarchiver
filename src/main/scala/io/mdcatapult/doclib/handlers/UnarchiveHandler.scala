@@ -109,7 +109,8 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
 
   def fetch(id: String): Future[Option[DoclibDoc]] = collection.find(equal("_id", new ObjectId(id))).first().toFutureOption()
 
-  def handle(msg: DoclibMsg, key: String): Future[Option[Any]] =
+  def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
+    logger.info(f"RECEIVED: ${msg.id}")
     (for {
       doc: DoclibDoc ← OptionT(fetch(msg.id))
       started: UpdateResult ← OptionT(flags.start(doc))
@@ -135,5 +136,6 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
           case Failure(_) ⇒ // do nothing as error handling will capture
         }
     })
+  }
 
 }
