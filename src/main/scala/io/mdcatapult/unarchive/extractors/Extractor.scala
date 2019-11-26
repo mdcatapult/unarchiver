@@ -41,16 +41,19 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
     source match {
       case regex(path, file) ⇒
         val c = commonPath(List(targetRoot, path))
-        val scrubbed = path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", "")
-        val targetPath = scrubbed match {
-          case path if path.startsWith(config.getString("doclib.local.target-dir")) => path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", "")
-          case path if path.startsWith(config.getString("doclib.remote.target-dir")) => path
-        }
+        val targetPath  = scrub(path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", ""))
         Paths.get(config.getString("doclib.local.temp-dir"), targetRoot, targetPath, s"${prefix.getOrElse("")}_$file").toString
       case _ ⇒ source
     }
   }
 
+  def scrub(path: String):String  = path match {
+    case path if path.startsWith(config.getString("doclib.local.target-dir")) ⇒
+      scrub(path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", ""))
+    case path if path.startsWith(config.getString("unarchive.to.path"))  ⇒
+      scrub(path.replaceFirst(s"^${config.getString("unarchive.to.path")}/*", ""))
+    case _ ⇒ path
+  }
 
   def getEntries: Iterator[ArchiveEntry]
   def extractFile: ArchiveEntry ⇒ String

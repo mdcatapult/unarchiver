@@ -15,18 +15,22 @@ class AutoSpec extends TestAbstract with BeforeAndAfter{
     // ("local/test-compressed.rar", 2, "application/x-rar-compressed"),
     // ("local/test.skyd", 3, "application/zlib"),
     ("local/test.tar", 1, "application/x-tar"),
+    ("local/derivatives/derived_test.tar", 1, "application/x-tar"),
     // ("local/test.tar.bz2", 1, "application/x-bzip2"),
     ("local/test.tar.gz", 2, "application/gzip"),
+    ("local/derivatives/derived_test.tar.gz", 2, "application/gzip"),
     // ("local/test.wsz", 1, "application/zlib"),
     ("local/test.xz", 4, "application/x-xz"),
+    ("local/derivatives/derived_test.xz", 4, "application/x-xz"),
     ("local/test.zip", 1, "application/zip"),
+    ("local/derivatives/derived_test.zip", 1, "application/zip"),
   )
 
   files foreach  { file: (String, Int, String) ⇒ {
     val f = new Auto(getPath(file._1))
     val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
 
-    it should s"extract successfully to ${f.getAbsPath(target)}" in {
+    it should s"extract ${file._1} successfully to ${f.getAbsPath(target)}" in {
       f.extract
       val nf = new File(f.getAbsPath(target))
       assert(nf.exists())
