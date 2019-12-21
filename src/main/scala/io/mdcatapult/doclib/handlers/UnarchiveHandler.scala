@@ -115,8 +115,8 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
       doc: DoclibDoc ← OptionT(fetch(msg.id))
       started: UpdateResult ← OptionT(flags.start(doc))
       unarchived ← OptionT.fromOption[Future](unarchive(doc))
-      archivable ← OptionT.liftF(persist(doc, unarchived))
-      result ← OptionT(archive(doc, archivable))
+//      archivable ← OptionT.liftF(persist(doc, unarchived))
+//      result ← OptionT(archive(doc, archivable))
       _ ← OptionT(enqueue(unarchived, doc))
       _ ← OptionT(flags.end(doc, started.getModifiedCount > 0))
 
