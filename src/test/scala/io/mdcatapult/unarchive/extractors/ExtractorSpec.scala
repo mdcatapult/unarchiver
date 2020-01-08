@@ -1,17 +1,10 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.nio.file.Paths
-
-import com.typesafe.config.{Config, ConfigFactory}
-import org.scalatest.FlatSpec
-
-import scala.collection.JavaConverters._
-
 class ExtractorSpec extends TestAbstract{
 
   class dummy[T](source: String) extends Extractor[T](source) {
     def getEntries: Iterator[T] = ???
-    def extractFile: T ⇒ String = ???
+    def extractFile: T ⇒ Option[String] = ???
   }
 
   "getTargetPath" should "return a valid path for a local path" in {

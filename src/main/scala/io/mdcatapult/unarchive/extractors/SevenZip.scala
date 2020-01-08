@@ -13,16 +13,18 @@ class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZ
 
   def getEntries: Iterator[SevenZArchiveEntry] = file.getEntries.iterator.asScala
 
-  def extractFile: SevenZArchiveEntry ⇒ String = (entry: SevenZArchiveEntry) ⇒ {
+  def extractFile: SevenZArchiveEntry ⇒ Option[String] = (entry: SevenZArchiveEntry) ⇒ {
     file.getNextEntry
     val content = new Array[Byte](entry.getSize.asInstanceOf[Int])
     file.read(content, 0, content.length)
     val relPath = s"$targetPath/${entry.getName}"
     val target = new File(getAbsPath(relPath))
     target.getParentFile.mkdirs()
+
     val output = new FileOutputStream(target)
     output.write(content)
     output.close()
-    relPath
+
+    Option(relPath)
   }
 }
