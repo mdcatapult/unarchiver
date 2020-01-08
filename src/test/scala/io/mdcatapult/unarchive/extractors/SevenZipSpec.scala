@@ -2,7 +2,6 @@ package io.mdcatapult.unarchive.extractors
 
 import java.io.File
 
-import org.apache.commons.io.FileUtils
 import org.scalatest.BeforeAndAfter
 
 class SevenZipSpec extends TestAbstract with BeforeAndAfter{

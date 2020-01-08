@@ -22,22 +22,24 @@ class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEnt
         case Failure (_) ⇒ input
       })
 
-
   def getEntries: Iterator[ArchiveEntry] = {
     Iterator.continually(ais.getNextEntry)
       .takeWhile(ais.canReadEntryData)
       .filterNot(_.isDirectory)
   }
 
-  def extractFile: ArchiveEntry ⇒ String = (entry: ArchiveEntry) ⇒ {
+  def extractFile: ArchiveEntry ⇒ Option[String] = (entry: ArchiveEntry) ⇒ {
     val relPath = Paths.get(targetPath, entry.getName).toString
     val target = new File(getAbsPath(relPath))
     target.getParentFile.mkdirs()
+
     val ois = new FileOutputStream(target)
+
     IOUtils.copy(ais, ois)
     ois.flush()
     ois.close()
-    relPath
+
+    Option(relPath)
   }
 
 }

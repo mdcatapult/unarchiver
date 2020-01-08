@@ -8,7 +8,7 @@ lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.20"
-lazy val doclibCommonVersion = "0.0.29"
+lazy val doclibCommonVersion = "0.0.30"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
@@ -43,7 +43,7 @@ lazy val root = (project in file(".")).
       "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
       "org.apache.tika" % "tika-core"                 % tikaVersion,
       "org.apache.tika" % "tika-parsers"              % tikaVersion,
-      "jakarta.ws.rs" % "jakarta.ws.rs-api"           % "2.1.4"
+      "jakarta.ws.rs" % "jakarta.ws.rs-api"           % "2.1.4",
     ).map(_ exclude("javax.ws.rs", "javax.ws.rs-api")),
   )
   .settings(
@@ -52,11 +52,11 @@ lazy val root = (project in file(".")).
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
-      case PathList("com", "sun", xs @ _*) => MergeStrategy.first
-      case PathList("javax", "servlet", xs @ _*) => MergeStrategy.first
-      case PathList("javax", "activation", xs @ _*) => MergeStrategy.first
-      case PathList("org", "apache", "commons", xs @ _*) => MergeStrategy.first
-      case PathList("com", "ctc", "wstx", xs @ _*) => MergeStrategy.first
+      case PathList("com", "sun", _*) => MergeStrategy.first
+      case PathList("javax", "servlet", _*) => MergeStrategy.first
+      case PathList("javax", "activation", _*) => MergeStrategy.first
+      case PathList("org", "apache", "commons", _*) => MergeStrategy.first
+      case PathList("com", "ctc", "wstx", _*) => MergeStrategy.first
       case PathList(xs @ _*) if xs.last endsWith ".DSA" => MergeStrategy.discard
       case PathList(xs @ _*) if xs.last endsWith ".SF" => MergeStrategy.discard
       case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
