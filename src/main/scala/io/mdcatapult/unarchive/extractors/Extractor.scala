@@ -56,8 +56,17 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
   }
 
   def getEntries: Iterator[ArchiveEntry]
-  def extractFile: ArchiveEntry ⇒ String
-  def extract: List[String] = getEntries.map(extractFile).toList
 
+  /** Write the contents of an archive entry into a file.  It is valid for this method to determine from the entry
+    * contents that the file is to not be written, in which None is returned.
+    *
+    * @return some file name if the file is written or None otherwise
+    */
+  def extractFile: ArchiveEntry ⇒ Option[String]
 
+  /** Extract all archive entries into files - one file per entry.
+    *
+    * @return list of file names or all written entries
+    */
+  def extract: List[String] = getEntries.map(extractFile).toList.flatten
 }

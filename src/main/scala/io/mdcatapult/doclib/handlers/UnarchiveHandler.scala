@@ -52,26 +52,12 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
     Future.successful(Some(true))
   }
 
-
-  /**
-    * persists all unarchived
-    * @param doc
-    * @param unarchived
-    * @return
-    */
   def persist(doc: DoclibDoc, unarchived: List[String]): Future[List[Derivative]] =
     collection.updateOne(equal("_id", doc._id),
       addEachToSet("derivatives", unarchived.map(path ⇒ Derivative("unarchived", path)):_*),
     ).toFutureOption().map(_ ⇒ doc.derivatives.getOrElse(List[Derivative]())
       .filter(d ⇒ d.`type` == "unarchived" && !unarchived.contains(d.path)))
 
-
-  /**
-    *
-    * @param doc
-    * @param archivable
-    * @return
-    */
   def archive(doc: DoclibDoc, archivable: List[Derivative]): Future[Option[Any]] =
     if (archivable.nonEmpty) {
       collection.updateOne(equal("_id", doc._id),

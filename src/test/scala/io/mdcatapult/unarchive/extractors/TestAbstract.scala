@@ -1,13 +1,9 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.nio.file.Paths
-
 import better.files.Dsl.pwd
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.util.DirectoryDelete
 import org.scalatest.{BeforeAndAfterAll, FlatSpec}
-
-import scala.collection.JavaConverters._
 
 class TestAbstract extends FlatSpec with DirectoryDelete with BeforeAndAfterAll {
 
@@ -34,7 +30,7 @@ class TestAbstract extends FlatSpec with DirectoryDelete with BeforeAndAfterAll 
 
   override def afterAll(): Unit = {
     // These may or may not exist but are all removed anyway
-    deleteDirectories(List((pwd/"test-assets/ingress")))
+    deleteDirectories(List(pwd/"test-assets/ingress"))
   }
 
 }
