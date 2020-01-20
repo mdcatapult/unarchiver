@@ -8,7 +8,7 @@ lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.20"
-lazy val doclibCommonVersion = "0.0.30"
+lazy val doclibCommonVersion = "0.0.34"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
@@ -19,8 +19,8 @@ lazy val root = (project in file(".")).
     coverageEnabled   := false,
     scalacOptions     += "-Ypartial-unification",
     resolvers         ++= Seq(
-      "MDC Nexus Releases" at "http://nexus.mdcatapult.io/repository/maven-releases/",
-      "MDC Nexus Snapshots" at "http://nexus.mdcatapult.io/repository/maven-snapshots/"),
+      "MDC Nexus Releases" at "https://nexus.mdcatapult.io/repository/maven-releases/",
+      "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/"),
     updateOptions := updateOptions.value.withLatestSnapshots(false),
     credentials       += {
       val nexusPassword = sys.env.get("NEXUS_PASSWORD")
