@@ -2,22 +2,30 @@ import sbtrelease.ReleaseStateTransformations._
 import Release._
 
 lazy val configVersion = "1.3.2"
-lazy val akkaVersion = "2.5.18"
-lazy val catsVersion = "1.5.0-RC1"
+lazy val akkaVersion = "2.5.26"
+lazy val catsVersion = "2.1.0"
 lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
-lazy val tikaVersion = "1.20"
-lazy val doclibCommonVersion = "0.0.37"
+lazy val tikaVersion = "1.21"
+lazy val doclibCommonVersion = "0.0.38"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
 lazy val root = (project in file(".")).
   settings(
     name              := "consumer-unarchive",
-    scalaVersion      := "2.12.8",
+    scalaVersion      := "2.12.10",
     coverageEnabled   := false,
-    scalacOptions     += "-Ypartial-unification",
+    scalacOptions ++= Seq(
+      "-encoding", "utf-8",
+      "-unchecked",
+      "-deprecation",
+      "-explaintypes",
+      "-feature",
+      "-Xlint",
+      "-Ypartial-unification",
+    ),
     resolvers         ++= Seq(
       "MDC Nexus Releases" at "https://nexus.mdcatapult.io/repository/maven-releases/",
       "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/"),
@@ -31,8 +39,8 @@ lazy val root = (project in file(".")).
       }
     },
     libraryDependencies ++= Seq(
-      "org.scalactic" %% "scalactic"                  % "3.0.5",
-      "org.scalatest" %% "scalatest"                  % "3.0.5" % "test",
+      "org.scalactic" %% "scalactic"                  % "3.1.0",
+      "org.scalatest" %% "scalatest"                  % "3.1.0" % Test,
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
       "ch.qos.logback" % "logback-classic"            % "1.2.3",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",

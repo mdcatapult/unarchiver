@@ -2,7 +2,8 @@ package io.mdcatapult.unarchive.extractors
 
 import java.io.File
 
-import org.scalatest.{BeforeAndAfter, Matchers}
+import org.scalatest.BeforeAndAfter
+import org.scalatest.matchers.should.Matchers
 
 class GzipSpec extends TestAbstract with BeforeAndAfter with Matchers {
 
