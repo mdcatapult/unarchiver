@@ -1,10 +1,10 @@
 package io.mdcatapult.doclib.handlers
 
-import akka.actor.ActorSystem
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+import io.mdcatapult.doclib.concurrency.LimitedExecution
 import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
@@ -19,12 +19,17 @@ import org.mongodb.scala.model.Updates._
 import org.mongodb.scala.result.UpdateResult
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[ArchiveMsg], supervisor: Sendable[SupervisorMsg])
-                      (implicit ac: ActorSystem,
-                       ex: ExecutionContextExecutor,
+class UnarchiveHandler(
+                        prefetch: Sendable[PrefetchMsg],
+                        archiver: Sendable[ArchiveMsg],
+                        supervisor: Sendable[SupervisorMsg],
+                        readLimit: LimitedExecution,
+                        writeLimit: LimitedExecution,
+                      )
+                      (implicit ec: ExecutionContext,
                        config: Config,
                        collection: MongoCollection[DoclibDoc]
                       ) extends LazyLogging {
@@ -53,26 +58,30 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
   }
 
   def persist(doc: DoclibDoc, unarchived: List[String]): Future[List[Derivative]] =
-    collection.updateOne(equal("_id", doc._id),
-      addEachToSet("derivatives", unarchived.map(path ⇒ Derivative("unarchived", path)):_*),
-    ).toFutureOption().map(_ ⇒ doc.derivatives.getOrElse(List[Derivative]())
-      .filter(d ⇒ d.`type` == "unarchived" && !unarchived.contains(d.path)))
+    writeLimit(collection) {
+      _.updateOne(equal("_id", doc._id),
+        addEachToSet("derivatives", unarchived.map(path ⇒ Derivative("unarchived", path)):_*),
+      ).toFutureOption().map(_ ⇒ doc.derivatives.getOrElse(List[Derivative]())
+        .filter(d ⇒ d.`type` == "unarchived" && !unarchived.contains(d.path)))
+    }
 
   def archive(doc: DoclibDoc, archivable: List[Derivative]): Future[Option[Any]] =
     if (archivable.nonEmpty) {
-      collection.updateOne(equal("_id", doc._id),
-        pullByFilter(
-          equal("derivatives", or(
-            archivable.map(d ⇒
-              and(
-                equal("type", "unarchived"),
-                equal("path", d.path)
-              )
-            ): _*)))
-      ).toFutureOption().andThen({
-        case Success(_) => archivable.foreach(d =>
-          archiver.send(ArchiveMsg(source = Some(d.path))))
-      })
+      writeLimit(collection) {
+        _.updateOne(equal("_id", doc._id),
+          pullByFilter(
+            equal("derivatives", or(
+              archivable.map(d ⇒
+                and(
+                  equal("type", "unarchived"),
+                  equal("path", d.path)
+                )
+              ): _*)))
+        ).toFutureOption().andThen({
+          case Success(_) => archivable.foreach(d =>
+            archiver.send(ArchiveMsg(source = Some(d.path))))
+        })
+      }
     } else {
       Future.successful(Some(true))
     }
@@ -93,7 +102,12 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
     }
 
 
-  def fetch(id: String): Future[Option[DoclibDoc]] = collection.find(equal("_id", new ObjectId(id))).first().toFutureOption()
+  def fetch(id: String): Future[Option[DoclibDoc]] =
+    readLimit(collection) {
+      _.find(equal("_id", new ObjectId(id)))
+        .first()
+        .toFutureOption()
+    }
 
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
@@ -117,9 +131,9 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
         Try(Await.result(fetch(msg.id), Duration.Inf)) match {
           case Success(value: Option[DoclibDoc]) ⇒ value match {
             case Some(doc) ⇒ flags.error(doc, noCheck = true)
-            case _ ⇒ // do nothing as error handling will capture
+            case _ ⇒ () // do nothing as error handling will capture
           }
-          case Failure(_) ⇒ // do nothing as error handling will capture
+          case Failure(_) ⇒ () // do nothing as error handling will capture
         }
     })
   }
