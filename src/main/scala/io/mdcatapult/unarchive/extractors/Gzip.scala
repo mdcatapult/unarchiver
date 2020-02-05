@@ -32,7 +32,7 @@ class Gzip(source: String)(implicit config: Config) extends Extractor[GzipArchiv
 
   // disable functions
   def getEntries: Iterator[GzipArchiveEntry] = Iterator[GzipArchiveEntry](new GzipArchiveEntry(
-    FilenameUtils.removeExtension(FilenameUtils.getName(source)), cis))//.filterNot(_.getSize == 0)
+    FilenameUtils.removeExtension(FilenameUtils.getName(source)), cis))
 
 
   def extractFile: GzipArchiveEntry ⇒ Option[String] = _ ⇒ {
