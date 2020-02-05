@@ -11,7 +11,7 @@ class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZ
 
   val file: SevenZFile =  new SevenZFile(new File(getAbsPath(source)))
 
-  def getEntries: Iterator[SevenZArchiveEntry] = file.getEntries.iterator.asScala
+  def getEntries: Iterator[SevenZArchiveEntry] = file.getEntries.iterator.asScala.filterNot(_.getSize == 0)
 
   def extractFile: SevenZArchiveEntry ⇒ Option[String] = (entry: SevenZArchiveEntry) ⇒ {
     file.getNextEntry

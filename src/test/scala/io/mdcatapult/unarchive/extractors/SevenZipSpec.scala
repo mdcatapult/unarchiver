@@ -31,6 +31,10 @@ class SevenZipSpec extends TestAbstract with BeforeAndAfter{
     }
   }
 
+  "A zero length file" should "not be extracted" in  {
+    val result = new SevenZip(getPath("local/zero_length.7z")).getEntries
+    assert(result.isEmpty)
+  }
 
 //  after {
 //    val t = new File(config.getString("unarchive.to.path"))

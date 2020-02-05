@@ -26,6 +26,7 @@ class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEnt
     Iterator.continually(ais.getNextEntry)
       .takeWhile(ais.canReadEntryData)
       .filterNot(_.isDirectory)
+      .filterNot(_.getSize == 0)
   }
 
   def extractFile: ArchiveEntry ⇒ Option[String] = (entry: ArchiveEntry) ⇒ {
