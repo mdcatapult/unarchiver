@@ -2,49 +2,53 @@ import sbtrelease.ReleaseStateTransformations._
 import Release._
 
 lazy val configVersion = "1.3.2"
-lazy val akkaVersion = "2.5.18"
-lazy val catsVersion = "1.5.0-RC1"
-lazy val opRabbitVersion = "2.1.0"
-lazy val mongoVersion = "2.5.0"
-lazy val awsScalaVersion = "0.8.1"
-lazy val tikaVersion = "1.20"
-lazy val doclibCommonVersion = "0.0.37"
+lazy val akkaVersion = "2.6.4"
+lazy val catsVersion = "2.1.0"
+lazy val doclibCommonVersion = "0.0.56"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
 lazy val root = (project in file(".")).
   settings(
     name              := "consumer-unarchive",
-    scalaVersion      := "2.12.8",
+    scalaVersion      := "2.13.1",
     coverageEnabled   := false,
-    scalacOptions     += "-Ypartial-unification",
+    scalacOptions ++= Seq(
+      "-encoding", "utf-8",
+      "-unchecked",
+      "-deprecation",
+      "-explaintypes",
+      "-feature",
+      "-Xlint",
+      "-Xfatal-warnings",
+    ),
     resolvers         ++= Seq(
       "MDC Nexus Releases" at "https://nexus.mdcatapult.io/repository/maven-releases/",
       "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/"),
     updateOptions := updateOptions.value.withLatestSnapshots(false),
     credentials       += {
-      val nexusPassword = sys.env.get("NEXUS_PASSWORD")
-      if ( nexusPassword.nonEmpty ) {
-        Credentials("Sonatype Nexus Repository Manager", "nexus.mdcatapult.io", "gitlab", nexusPassword.get)
-      } else {
-        Credentials(Path.userHome / ".sbt" / ".credentials")
+      sys.env.get("NEXUS_PASSWORD") match {
+        case Some(p) =>
+          Credentials("Sonatype Nexus Repository Manager", "nexus.mdcatapult.io", "gitlab", p)
+        case None =>
+          Credentials(Path.userHome / ".sbt" / ".credentials")
       }
     },
     libraryDependencies ++= Seq(
-      "org.scalactic" %% "scalactic"                  % "3.0.5",
-      "org.scalatest" %% "scalatest"                  % "3.0.5" % "test",
+      "org.scalactic" %% "scalactic"                  % "3.1.1",
+      "org.scalatest" %% "scalatest"                  % "3.1.1" % Test,
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
       "ch.qos.logback" % "logback-classic"            % "1.2.3",
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
       "com.typesafe" % "config"                       % configVersion,
       "org.typelevel" %% "cats-macros"                % catsVersion,
       "org.typelevel" %% "cats-kernel"                % catsVersion,
       "org.typelevel" %% "cats-core"                  % catsVersion,
       "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
-      "org.apache.tika" % "tika-core"                 % tikaVersion,
-      "org.apache.tika" % "tika-parsers"              % tikaVersion,
-      "jakarta.ws.rs" % "jakarta.ws.rs-api"           % "2.1.4",
-    ).map(_ exclude("javax.ws.rs", "javax.ws.rs-api")),
+    ).map(
+      _.exclude(org = "javax.ws.rs", name = "javax.ws.rs-api")
+        .exclude(org = "com.google.protobuf", name = "protobuf-java")
+    ),
   )
   .settings(
     assemblyJarName := "consumer.jar",

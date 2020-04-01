@@ -1,10 +1,10 @@
 package io.mdcatapult.doclib.handlers
 
-import akka.actor.ActorSystem
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+import io.mdcatapult.doclib.concurrency.LimitedExecution
 import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
@@ -19,12 +19,17 @@ import org.mongodb.scala.model.Updates._
 import org.mongodb.scala.result.UpdateResult
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[ArchiveMsg], supervisor: Sendable[SupervisorMsg])
-                      (implicit ac: ActorSystem,
-                       ex: ExecutionContextExecutor,
+class UnarchiveHandler(
+                        prefetch: Sendable[PrefetchMsg],
+                        archiver: Sendable[ArchiveMsg],
+                        supervisor: Sendable[SupervisorMsg],
+                        readLimit: LimitedExecution,
+                        writeLimit: LimitedExecution,
+                      )
+                      (implicit ec: ExecutionContext,
                        config: Config,
                        collection: MongoCollection[DoclibDoc]
                       ) extends LazyLogging {
@@ -34,7 +39,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
   def enqueue(extracted: List[String], doc: DoclibDoc): Future[Option[Boolean]] = {
     // Let prefetch know that it is an unarchived derivative
     val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "unarchived"))
-    extracted.foreach(path ⇒ {
+    extracted.foreach(path => {
       prefetch.send(PrefetchMsg(
         source = path,
         origin = Some(List(Origin(
@@ -53,26 +58,30 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
   }
 
   def persist(doc: DoclibDoc, unarchived: List[String]): Future[List[Derivative]] =
-    collection.updateOne(equal("_id", doc._id),
-      addEachToSet("derivatives", unarchived.map(path ⇒ Derivative("unarchived", path)):_*),
-    ).toFutureOption().map(_ ⇒ doc.derivatives.getOrElse(List[Derivative]())
-      .filter(d ⇒ d.`type` == "unarchived" && !unarchived.contains(d.path)))
+    writeLimit(collection, "save derivatives") {
+      _.updateOne(equal("_id", doc._id),
+        addEachToSet("derivatives", unarchived.map(path => Derivative("unarchived", path)):_*),
+      ).toFutureOption().map(_ => doc.derivatives.getOrElse(List[Derivative]())
+        .filter(d => d.`type` == "unarchived" && !unarchived.contains(d.path)))
+    }
 
   def archive(doc: DoclibDoc, archivable: List[Derivative]): Future[Option[Any]] =
     if (archivable.nonEmpty) {
-      collection.updateOne(equal("_id", doc._id),
-        pullByFilter(
-          equal("derivatives", or(
-            archivable.map(d ⇒
-              and(
-                equal("type", "unarchived"),
-                equal("path", d.path)
-              )
-            ): _*)))
-      ).toFutureOption().andThen({
-        case Success(_) => archivable.foreach(d =>
-          archiver.send(ArchiveMsg(source = Some(d.path))))
-      })
+      writeLimit(collection, "archive doc") {
+        _.updateOne(equal("_id", doc._id),
+          pullByFilter(
+            equal("derivatives", or(
+              archivable.map(d =>
+                and(
+                  equal("type", "unarchived"),
+                  equal("path", d.path)
+                )
+              ): _*)))
+        ).toFutureOption().andThen({
+          case Success(_) => archivable.foreach(d =>
+            archiver.send(ArchiveMsg(source = Some(d.path))))
+        })
+      }
     } else {
       Future.successful(Some(true))
     }
@@ -80,46 +89,51 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg], archiver: Sendable[Archi
   def unarchive(document: DoclibDoc): Option[List[String]] =
     Try(document.mimetype match {
       // try as compressed archive, else try as compressed file
-      case "application/gzip" ⇒ Try(new Auto(document.source).extract) match {
+      case "application/gzip" => Try(new Auto(document.source).extract) match {
         case Success(r) => r
-        case Failure(_: ArchiveException) ⇒ new Gzip(document.source).extract
-        case Failure(e) ⇒ throw e
+        case Failure(_: ArchiveException) => new Gzip(document.source).extract
+        case Failure(e) => throw e
       }
-      case "application/x-7z-compressed" ⇒ new SevenZip(document.source).extract
-      case _ ⇒ new Auto(document.source).extract
+      case "application/x-7z-compressed" => new SevenZip(document.source).extract
+      case _ => new Auto(document.source).extract
     }) match {
-      case Success(result) ⇒ Some(result)
-      case Failure(exception) ⇒ throw exception
+      case Success(result) => Some(result)
+      case Failure(exception) => throw exception
     }
 
 
-  def fetch(id: String): Future[Option[DoclibDoc]] = collection.find(equal("_id", new ObjectId(id))).first().toFutureOption()
+  def fetch(id: String): Future[Option[DoclibDoc]] =
+    readLimit(collection, "fetch document by id") {
+      _.find(equal("_id", new ObjectId(id)))
+        .first()
+        .toFutureOption()
+    }
 
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
     (for {
-      doc: DoclibDoc ← OptionT(fetch(msg.id))
-      started: UpdateResult ← OptionT(flags.start(doc))
-      unarchived ← OptionT.fromOption[Future](unarchive(doc))
-//      archivable ← OptionT.liftF(persist(doc, unarchived))
-//      result ← OptionT(archive(doc, archivable))
-      _ ← OptionT(enqueue(unarchived, doc))
-      _ ← OptionT(flags.end(doc, started.getModifiedCount > 0))
+      doc: DoclibDoc <- OptionT(fetch(msg.id))
+      started: UpdateResult <- OptionT(flags.start(doc))
+      unarchived <- OptionT.fromOption[Future](unarchive(doc))
+//      archivable <- OptionT.liftF(persist(doc, unarchived))
+//      result <- OptionT(archive(doc, archivable))
+      _ <- OptionT(enqueue(unarchived, doc))
+      _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
 
     } yield (unarchived, doc)).value.andThen({
-      case Success(result) ⇒ result match {
-        case Some(r) ⇒
+      case Success(result) => result match {
+        case Some(r) =>
           supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
           println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
-        case None ⇒ throw new Exception("Unidentified error occurred")
+        case None => throw new Exception("Unidentified error occurred")
       }
-      case Failure(_) ⇒
+      case Failure(_) =>
         Try(Await.result(fetch(msg.id), Duration.Inf)) match {
-          case Success(value: Option[DoclibDoc]) ⇒ value match {
-            case Some(doc) ⇒ flags.error(doc, noCheck = true)
-            case _ ⇒ // do nothing as error handling will capture
+          case Success(value: Option[DoclibDoc]) => value match {
+            case Some(doc) => flags.error(doc, noCheck = true)
+            case _ => () // do nothing as error handling will capture
           }
-          case Failure(_) ⇒ // do nothing as error handling will capture
+          case Failure(_) => () // do nothing as error handling will capture
         }
     })
   }

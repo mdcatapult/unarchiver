@@ -1,32 +1,46 @@
 package io.mdcatapult.doclib.consumers
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.spingo.op_rabbit.SubscriptionRef
+import io.mdcatapult.doclib.concurrency.SemaphoreLimitedExecution
 import io.mdcatapult.doclib.consumer.AbstractConsumer
 import io.mdcatapult.doclib.handlers.UnarchiveHandler
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.DoclibDoc
 import io.mdcatapult.klein.mongo.Mongo
-import io.mdcatapult.klein.queue.Queue
+import io.mdcatapult.klein.queue.{Envelope, Queue}
 import org.mongodb.scala.MongoCollection
-
-import scala.concurrent.ExecutionContextExecutor
+import play.api.libs.json.Format
 
 /**
   * RabbitMQ Consumer to unarchive files
   */
 object ConsumerUnarchive extends AbstractConsumer("consumer-unarchive") {
 
-  def start()(implicit as: ActorSystem, materializer: ActorMaterializer, mongo: Mongo): SubscriptionRef = {
-    implicit val ex: ExecutionContextExecutor = as.dispatcher
+  override def start()(implicit as: ActorSystem, m: Materializer, mongo: Mongo): SubscriptionRef = {
+    import as.dispatcher
+
     implicit val collection: MongoCollection[DoclibDoc] = mongo.database.getCollection(config.getString("mongo.collection"))
 
+    def queue[T <: Envelope](property: String)(implicit f: Format[T]): Queue[T] =
+      new Queue[T](config.getString(property), consumerName = Some("unarchiver"))
+
     /** initialise queues **/
-    val archiver: Queue[ArchiveMsg] = new Queue[ArchiveMsg](config.getString("doclib.archive.queue"), Some("unarchiver"))
-    val supervisor: Queue[SupervisorMsg] = new Queue[SupervisorMsg](config.getString("doclib.supervisor.queue"), Some("unarchiver"))
-    val prefetch: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"), Some("unarchiver"))
-    val upstream: Queue[DoclibMsg] = new Queue[DoclibMsg](config.getString("upstream.queue"), Some("unarchiver"))
-    upstream.subscribe(new UnarchiveHandler(prefetch, archiver, supervisor).handle, config.getInt("upstream.concurrent"))
+    val archiver: Queue[ArchiveMsg] = queue("doclib.archive.queue")
+    val supervisor: Queue[SupervisorMsg] = queue("doclib.supervisor.queue")
+    val prefetch: Queue[PrefetchMsg] = queue("downstream.queue")
+    val upstream: Queue[DoclibMsg] = queue("upstream.queue")
+
+    val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.limit.read"))
+    val writeLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.limit.write"))
+
+    upstream.subscribe(new UnarchiveHandler(
+      prefetch,
+      archiver,
+      supervisor,
+      readLimiter,
+      writeLimiter,
+    ).handle, config.getInt("upstream.concurrent"))
   }
 }
