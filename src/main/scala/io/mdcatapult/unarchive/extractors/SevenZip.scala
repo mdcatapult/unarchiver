@@ -5,7 +5,7 @@ import java.io.{File, FileOutputStream}
 import com.typesafe.config.Config
 import org.apache.commons.compress.archivers.sevenz.{SevenZArchiveEntry, SevenZFile}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZArchiveEntry](source) {
 
@@ -13,7 +13,7 @@ class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZ
 
   def getEntries: Iterator[SevenZArchiveEntry] = file.getEntries.iterator.asScala.filterNot(_.getSize == 0)
 
-  def extractFile: SevenZArchiveEntry ⇒ Option[String] = (entry: SevenZArchiveEntry) ⇒ {
+  def extractFile(): SevenZArchiveEntry => Option[String] = (entry: SevenZArchiveEntry) => {
     file.getNextEntry
     val content = new Array[Byte](entry.getSize.asInstanceOf[Int])
     file.read(content, 0, content.length)

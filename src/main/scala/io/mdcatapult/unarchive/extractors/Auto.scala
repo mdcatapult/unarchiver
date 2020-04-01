@@ -18,8 +18,8 @@ class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEnt
   def getArchiveInputStream: ArchiveInputStream =
     new ArchiveStreamFactory().createArchiveInputStream(
       Try (new CompressorStreamFactory().createCompressorInputStream(input) ) match {
-        case Success (cs) ⇒ new BufferedInputStream(cs)
-        case Failure (_) ⇒ input
+        case Success (cs) => new BufferedInputStream(cs)
+        case Failure (_) => input
       })
 
   def getEntries: Iterator[ArchiveEntry] = {
@@ -29,7 +29,7 @@ class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEnt
       .filterNot(_.getSize == 0)
   }
 
-  def extractFile: ArchiveEntry ⇒ Option[String] = (entry: ArchiveEntry) ⇒ {
+  def extractFile(): ArchiveEntry => Option[String] = (entry: ArchiveEntry) => {
     val relPath = Paths.get(targetPath, entry.getName).toString
     val target = new File(getAbsPath(relPath))
     target.getParentFile.mkdirs()

@@ -1,7 +1,7 @@
 package io.mdcatapult.doclib.consumers
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.spingo.op_rabbit.SubscriptionRef
 import io.mdcatapult.doclib.concurrency.SemaphoreLimitedExecution
 import io.mdcatapult.doclib.consumer.AbstractConsumer
@@ -18,7 +18,7 @@ import play.api.libs.json.Format
   */
 object ConsumerUnarchive extends AbstractConsumer("consumer-unarchive") {
 
-  def start()(implicit as: ActorSystem, materializer: ActorMaterializer, mongo: Mongo): SubscriptionRef = {
+  override def start()(implicit as: ActorSystem, m: Materializer, mongo: Mongo): SubscriptionRef = {
     import as.dispatcher
 
     implicit val collection: MongoCollection[DoclibDoc] = mongo.database.getCollection(config.getString("mongo.collection"))
@@ -33,7 +33,6 @@ object ConsumerUnarchive extends AbstractConsumer("consumer-unarchive") {
     val upstream: Queue[DoclibMsg] = queue("upstream.queue")
 
     val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.limit.read"))
-
     val writeLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.limit.write"))
 
     upstream.subscribe(new UnarchiveHandler(

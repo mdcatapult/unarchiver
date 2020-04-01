@@ -4,7 +4,7 @@ import java.io.File
 
 import org.scalatest.BeforeAndAfter
 
-class AutoSpec extends TestAbstract with BeforeAndAfter{
+class AutoSpec extends TestAbstract("ingressAuto") with BeforeAndAfter {
 
   val files: List[(String, Int, String)] = List[(String, Int, String)](
     // ("local/test.bz2", 1, "application/x-bzip2"),
@@ -31,34 +31,27 @@ class AutoSpec extends TestAbstract with BeforeAndAfter{
     ("local/zero_length.zip", 0, "application/zip")
   )
 
-  files foreach  { file: (String, Int, String) ⇒ {
+  files foreach  { file: (String, Int, String) => {
     val f = new Auto(getPath(file._1))
     val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
 
     it should s"extract ${file._1} successfully to ${f.getAbsPath(target)}" in {
-      f.extract
+      f.extract()
       val nf = new File(f.getAbsPath(target))
       assert(nf.exists())
       assert(nf.listFiles().length > 0)
     }
   }}
 
-  zeroLengthFiles foreach  { file: (String, Int, String) ⇒ {
+  zeroLengthFiles foreach  { file: (String, Int, String) => {
     val f = new Auto(getPath(file._1))
     val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
 
     it should s"not extract ${file._1}" in {
-      f.extract
+      f.extract()
       val nf = new File(f.getAbsPath(target))
       assert(!nf.exists())
     }
   }}
-
-
-//  after {
-//    val t = new File(config.getString("unarchive.to.path"))
-//    if (t.exists()) FileUtils.deleteQuietly(t)
-//  }
-
 
 }
