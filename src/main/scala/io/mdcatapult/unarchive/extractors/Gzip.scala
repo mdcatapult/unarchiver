@@ -35,7 +35,7 @@ class Gzip(source: String)(implicit config: Config) extends Extractor[GzipArchiv
     FilenameUtils.removeExtension(FilenameUtils.getName(source)), cis))
 
 
-  def extractFile: GzipArchiveEntry ⇒ Option[String] = _ ⇒ {
+  def extractFile(): GzipArchiveEntry => Option[String] = _ => {
     val fileName = FilenameUtils.removeExtension(FilenameUtils.getName(source))
     val relPath = s"$targetPath/$fileName"
     val target = new File(getAbsPath(relPath))
