@@ -13,6 +13,7 @@ lazy val root = (project in file(".")).
     name              := "consumer-unarchive",
     scalaVersion      := "2.13.1",
     coverageEnabled   := false,
+    useCoursier   := false,
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
       "-unchecked",
