@@ -7,7 +7,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.concurrency.LimitedExecution
 import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, Origin}
 import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.unarchive.extractors.{Auto, Gzip, SevenZip}
@@ -33,6 +33,8 @@ class UnarchiveHandler(
                        config: Config,
                        collection: MongoCollection[DoclibDoc]
                       ) extends LazyLogging {
+
+  private val docExtractor = DoclibDocExtractor()
 
   lazy val flags = new DoclibFlags(config.getString("doclib.flag"))
 
@@ -89,18 +91,17 @@ class UnarchiveHandler(
   def unarchive(document: DoclibDoc): Option[List[String]] =
     Try(document.mimetype match {
       // try as compressed archive, else try as compressed file
-      case "application/gzip" => Try(new Auto(document.source).extract) match {
+      case "application/gzip" => Try(new Auto(document.source).extract()) match {
         case Success(r) => r
-        case Failure(_: ArchiveException) => new Gzip(document.source).extract
+        case Failure(_: ArchiveException) => new Gzip(document.source).extract()
         case Failure(e) => throw e
       }
-      case "application/x-7z-compressed" => new SevenZip(document.source).extract
-      case _ => new Auto(document.source).extract
+      case "application/x-7z-compressed" => new SevenZip(document.source).extract()
+      case _ => new Auto(document.source).extract()
     }) match {
       case Success(result) => Some(result)
       case Failure(exception) => throw exception
     }
-
 
   def fetch(id: String): Future[Option[DoclibDoc]] =
     readLimit(collection, "fetch document by id") {
@@ -113,10 +114,9 @@ class UnarchiveHandler(
     logger.info(f"RECEIVED: ${msg.id}")
     (for {
       doc: DoclibDoc <- OptionT(fetch(msg.id))
+      if !docExtractor.isRunRecently(doc)
       started: UpdateResult <- OptionT(flags.start(doc))
       unarchived <- OptionT.fromOption[Future](unarchive(doc))
-//      archivable <- OptionT.liftF(persist(doc, unarchived))
-//      result <- OptionT(archive(doc, archivable))
       _ <- OptionT(enqueue(unarchived, doc))
       _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
 
