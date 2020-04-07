@@ -21,7 +21,8 @@ object ConsumerUnarchive extends AbstractConsumer("consumer-unarchive") {
   override def start()(implicit as: ActorSystem, m: Materializer, mongo: Mongo): SubscriptionRef = {
     import as.dispatcher
 
-    implicit val collection: MongoCollection[DoclibDoc] = mongo.database.getCollection(config.getString("mongo.collection"))
+    implicit val collection: MongoCollection[DoclibDoc] =
+      mongo.database.getCollection(config.getString("mongo.collection"))
 
     def queue[T <: Envelope](property: String)(implicit f: Format[T]): Queue[T] =
       new Queue[T](config.getString(property), consumerName = Some("unarchiver"))
@@ -35,12 +36,15 @@ object ConsumerUnarchive extends AbstractConsumer("consumer-unarchive") {
     val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.limit.read"))
     val writeLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.limit.write"))
 
-    upstream.subscribe(new UnarchiveHandler(
-      prefetch,
-      archiver,
-      supervisor,
-      readLimiter,
-      writeLimiter,
-    ).handle, config.getInt("upstream.concurrent"))
+    upstream.subscribe(
+      new UnarchiveHandler(
+        prefetch,
+        archiver,
+        supervisor,
+        readLimiter,
+        writeLimiter,
+      ).handle,
+      config.getInt("upstream.concurrent")
+    )
   }
 }

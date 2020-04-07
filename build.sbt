@@ -4,7 +4,7 @@ import Release._
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
-lazy val doclibCommonVersion = "0.0.56"
+lazy val doclibCommonVersion = "0.0.60"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
@@ -13,6 +13,7 @@ lazy val root = (project in file(".")).
     name              := "consumer-unarchive",
     scalaVersion      := "2.13.1",
     coverageEnabled   := false,
+    useCoursier   := false,
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
       "-unchecked",
@@ -25,7 +26,7 @@ lazy val root = (project in file(".")).
     resolvers         ++= Seq(
       "MDC Nexus Releases" at "https://nexus.mdcatapult.io/repository/maven-releases/",
       "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/"),
-    updateOptions := updateOptions.value.withLatestSnapshots(false),
+    updateOptions := updateOptions.value.withLatestSnapshots(latestSnapshots = false),
     credentials       += {
       sys.env.get("NEXUS_PASSWORD") match {
         case Some(p) =>
