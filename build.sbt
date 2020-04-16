@@ -49,6 +49,7 @@ lazy val root = (project in file(".")).
     ).map(
       _.exclude(org = "javax.ws.rs", name = "javax.ws.rs-api")
         .exclude(org = "com.google.protobuf", name = "protobuf-java")
+        .exclude(org = "com.typesafe.play", name = "shaded-asynchttpclient")
     ),
   )
   .settings(
