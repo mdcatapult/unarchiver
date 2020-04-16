@@ -88,20 +88,26 @@ class UnarchiveHandler(
       Future.successful(Some(true))
     }
 
-  def unarchive(document: DoclibDoc): Option[List[String]] =
+  def unarchive(document: DoclibDoc): Option[List[String]] = {
+    val sourcePath = document.source
+
     Try(document.mimetype match {
       // try as compressed archive, else try as compressed file
-      case "application/gzip" => Try(new Auto(document.source).extract()) match {
-        case Success(r) => r
-        case Failure(_: ArchiveException) => new Gzip(document.source).extract()
-        case Failure(e) => throw e
-      }
-      case "application/x-7z-compressed" => new SevenZip(document.source).extract()
-      case _ => new Auto(document.source).extract()
+      case "application/gzip" =>
+        Try(new Auto(sourcePath).extract()) match {
+          case Success(r) => r
+          case Failure(_: ArchiveException) => new Gzip(sourcePath).extract()
+          case Failure(e) => throw e
+        }
+      case "application/x-7z-compressed" =>
+        new SevenZip(sourcePath).extract()
+      case _ =>
+        new Auto(sourcePath).extract()
     }) match {
       case Success(result) => Some(result)
       case Failure(exception) => throw exception
     }
+  }
 
   def fetch(id: String): Future[Option[DoclibDoc]] =
     readLimit(collection, "fetch document by id") {

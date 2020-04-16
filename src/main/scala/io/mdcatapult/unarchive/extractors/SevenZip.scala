@@ -7,20 +7,19 @@ import scala.jdk.CollectionConverters._
 
 class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZArchiveEntry](source) {
 
-  val file: SevenZFile =  new SevenZFile(getAbsoluteFile(source))
+  private val sevenZFile = new SevenZFile(file)
 
-  def getEntries: Iterator[SevenZArchiveEntry] = file.getEntries.iterator.asScala.filterNot(_.getSize == 0)
+  def getEntries: Iterator[SevenZArchiveEntry] = sevenZFile.getEntries.iterator.asScala.filterNot(_.getSize == 0)
 
-  def extractFile(): SevenZArchiveEntry => Option[String] = (entry: SevenZArchiveEntry) => {
-    file.getNextEntry
+  def extractFile(): SevenZArchiveEntry => Option[String] =
+    (entry: SevenZArchiveEntry) => {
+      sevenZFile.getNextEntry
 
-    val content = new Array[Byte](entry.getSize.asInstanceOf[Int])
-    file.read(content, 0, content.length)
+      val content = new Array[Byte](entry.getSize.asInstanceOf[Int])
+      sevenZFile.read(content, 0, content.length)
 
-    val relPath = s"$targetPath/${entry.getName}"
-
-    writeAllContent(doclibRoot, relPath) {
-      _.write(content)
+      writeAllContent(doclibRoot, targetPath.resolve(entry.getName)) {
+        _.write(content)
+      }
     }
-  }
 }
