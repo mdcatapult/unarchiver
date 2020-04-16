@@ -7,7 +7,11 @@ import com.typesafe.config.Config
 
 abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) {
 
-  val targetPath: Path = getTargetPath(source, config.getString("unarchive.to.path"), Some("unarchived"))
+  private val localTargetDir = config.getString("doclib.local.target-dir")
+  private val unarchiveToDir = config.getString("unarchive.to.path")
+  private val tempDir = config.getString("doclib.local.temp-dir")
+
+  val targetPath: Path = getTargetPath(source, unarchiveToDir, Some("unarchived"))
   val doclibRoot: Path = Path.of(s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/")
 
   val file: File = absoluteFile(doclibRoot, Path.of(source))
@@ -51,17 +55,17 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
         val c = commonPath(List(targetRoot, path))
         val scrubbedPath  = scrub(path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", ""))
 
-        Paths.get(config.getString("doclib.local.temp-dir"), targetRoot, scrubbedPath, s"${prefix.getOrElse("")}_$file")
+        Paths.get(tempDir, targetRoot, scrubbedPath, s"${prefix.getOrElse("")}_$file")
 
       case _ => new File(source).toPath
     }
   }
 
   def scrub(path: String):String = path match {
-    case path if path.startsWith(config.getString("doclib.local.target-dir")) =>
-      scrub(path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", ""))
-    case path if path.startsWith(config.getString("unarchive.to.path"))  =>
-      scrub(path.replaceFirst(s"^${config.getString("unarchive.to.path")}/*", ""))
+    case path if path.startsWith(localTargetDir) =>
+      scrub(path.replaceFirst(s"^$localTargetDir/*", ""))
+    case path if path.startsWith(unarchiveToDir)  =>
+      scrub(path.replaceFirst(s"^$unarchiveToDir/*", ""))
     case _ => path
   }
 
