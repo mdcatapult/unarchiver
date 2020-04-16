@@ -1,7 +1,5 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.io.File
-
 import org.scalatest.BeforeAndAfter
 import org.scalatest.matchers.should.Matchers
 
@@ -21,9 +19,10 @@ class GzipSpec extends TestAbstract("ingressGzip") with BeforeAndAfter with Matc
       assert(result.length == file._2)
     }
 
-    it should s"extract successfully to ${f.getAbsPath(target)}" in {
+    it should s"extract successfully to ${f.getAbsoluteFile(target)}" in {
       f.extract()
-      val nf = new File(f.getAbsPath(target))
+      val nf = f.getAbsoluteFile(target)
+
       assert(nf.exists())
       assert(nf.listFiles().length > 0)
     }
@@ -37,11 +36,12 @@ class GzipSpec extends TestAbstract("ingressGzip") with BeforeAndAfter with Matc
       f.getEntries.toList.head.getName should be ("test")
     }
 
-    it should s"not be extracted to ${f.getAbsPath(target)}" in {
+    it should s"not be extracted to ${f.getAbsoluteFile(target)}" in {
       val extractedFilenames = f.extract()
       extractedFilenames should be (List())
 
-      val nf = new File(f.getAbsPath(target))
+      val nf = f.getAbsoluteFile(target)
+
       assert(nf.listFiles().isEmpty)
     }
   }}
@@ -54,11 +54,12 @@ class GzipSpec extends TestAbstract("ingressGzip") with BeforeAndAfter with Matc
       f.getEntries.toList.head.getName should be ("zero_length")
     }
 
-    it should s"not be extracted to ${f.getAbsPath(target)}" in {
+    it should s"not be extracted to ${f.getAbsoluteFile(target)}" in {
       val extractedFilenames = f.extract()
       extractedFilenames should be (List())
 
-      val nf = new File(f.getAbsPath(target))
+      val nf = f.getAbsoluteFile(target)
+
       assert(nf.listFiles().isEmpty)
     }
   }}

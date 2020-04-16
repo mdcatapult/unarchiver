@@ -1,12 +1,13 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.io.{BufferedInputStream, File, FileInputStream, FileOutputStream, InputStream}
+import java.io.{BufferedInputStream, FileInputStream, InputStream}
 import java.util.Date
 
 import com.typesafe.config.Config
 import io.mdcatapult.doclib.loader.MagicNumberFilterInputStream
 import org.apache.commons.compress.archivers.ArchiveEntry
 import org.apache.commons.compress.compressors.{CompressorInputStream, CompressorStreamFactory}
+import org.apache.commons.io.FilenameUtils.removeExtension
 import org.apache.commons.io.{FilenameUtils, IOUtils}
 
 class GzipArchiveEntry(name: String, cis: CompressorInputStream) extends ArchiveEntry {
@@ -25,32 +26,26 @@ object Gzip {
 
 class Gzip(source: String)(implicit config: Config) extends Extractor[GzipArchiveEntry](source) {
 
-  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(getAbsPath(source)))
+  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(getAbsoluteFile(source)))
   val cis: CompressorInputStream = getCompressorInputStream
 
   def getCompressorInputStream: CompressorInputStream = new CompressorStreamFactory().createCompressorInputStream(input)
 
   // disable functions
-  def getEntries: Iterator[GzipArchiveEntry] = Iterator[GzipArchiveEntry](new GzipArchiveEntry(
-    FilenameUtils.removeExtension(FilenameUtils.getName(source)), cis))
-
+  def getEntries: Iterator[GzipArchiveEntry] =
+    Iterator[GzipArchiveEntry](
+      new GzipArchiveEntry(
+        removeExtension(FilenameUtils.getName(source)),
+        cis)
+    )
 
   def extractFile(): GzipArchiveEntry => Option[String] = _ => {
-    val fileName = FilenameUtils.removeExtension(FilenameUtils.getName(source))
+    val fileName = removeExtension(FilenameUtils.getName(source))
     val relPath = s"$targetPath/$fileName"
-    val target = new File(getAbsPath(relPath))
-    target.getParentFile.mkdirs()
 
-    val ois = new FileOutputStream(target)
-    IOUtils.copy(Gzip.filterOutRData(cis), ois)
-    ois.flush()
-    ois.close()
-
-    if (target.length() == 0) {
-      target.delete()
-      None
-    } else
-      Option(relPath)
+    writeAllContent(doclibRoot, relPath) {
+      out => IOUtils.copy(Gzip.filterOutRData(cis), out)
+    }
   }
 
 }

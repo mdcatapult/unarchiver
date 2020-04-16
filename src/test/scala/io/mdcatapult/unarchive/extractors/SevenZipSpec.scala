@@ -1,7 +1,5 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.io.File
-
 import org.scalatest.BeforeAndAfter
 
 class SevenZipSpec extends TestAbstract("ingress7Zip") with BeforeAndAfter {
@@ -20,9 +18,10 @@ class SevenZipSpec extends TestAbstract("ingress7Zip") with BeforeAndAfter {
       assert(result.length == file._2)
     }
 
-    it should f"extract successfully to ${f.getAbsPath(target)}" in {
+    it should f"extract successfully to ${f.getAbsoluteFile(target)}" in {
       f.extract()
-      val nf = new File(f.getAbsPath(target))
+      val nf = f.getAbsoluteFile(target)
+
       assert(nf.exists())
       assert(nf.listFiles().length > 0)
     }
