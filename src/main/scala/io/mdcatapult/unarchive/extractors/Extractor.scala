@@ -1,5 +1,6 @@
 package io.mdcatapult.unarchive.extractors
 
+import java.io.File
 import java.nio.file.Paths
 
 import com.typesafe.config.Config
@@ -10,9 +11,8 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
   lazy val targetPath: String = getTargetPath(source, config.getString("unarchive.to.path"), Some("unarchived"))
   val doclibRoot: String = s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/"
 
-  def getAbsPath(path: String): String = {
-    Paths.get(doclibRoot, path).toAbsolutePath.toString
-  }
+  def getAbsoluteFile(relativePath: String): File =
+    absoluteFile(doclibRoot, relativePath)
 
   /**
     * determines common root paths for two path string

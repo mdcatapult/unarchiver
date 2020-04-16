@@ -1,6 +1,6 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.io.{BufferedInputStream, File, FileInputStream, FileOutputStream}
+import java.io.{BufferedInputStream, FileInputStream}
 import java.nio.file.Paths
 
 import com.typesafe.config.Config
@@ -12,7 +12,7 @@ import scala.util.{Failure, Success, Try}
 
 class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEntry](source) {
 
-  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(getAbsPath(source)))
+  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(getAbsoluteFile(source)))
   val ais: ArchiveInputStream = getArchiveInputStream
 
   def getArchiveInputStream: ArchiveInputStream =
@@ -31,16 +31,10 @@ class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEnt
 
   def extractFile(): ArchiveEntry => Option[String] = (entry: ArchiveEntry) => {
     val relPath = Paths.get(targetPath, entry.getName).toString
-    val target = new File(getAbsPath(relPath))
-    target.getParentFile.mkdirs()
 
-    val ois = new FileOutputStream(target)
-
-    IOUtils.copy(ais, ois)
-    ois.flush()
-    ois.close()
-
-    Option(relPath)
+    writeAllContent(doclibRoot, relPath) {
+      out => IOUtils.copy(ais, out)
+    }
   }
 
 }

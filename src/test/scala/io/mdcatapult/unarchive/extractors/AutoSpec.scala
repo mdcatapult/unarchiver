@@ -1,7 +1,5 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.io.File
-
 import org.scalatest.BeforeAndAfter
 
 class AutoSpec extends TestAbstract("ingressAuto") with BeforeAndAfter {
@@ -35,9 +33,10 @@ class AutoSpec extends TestAbstract("ingressAuto") with BeforeAndAfter {
     val f = new Auto(getPath(file._1))
     val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
 
-    it should s"extract ${file._1} successfully to ${f.getAbsPath(target)}" in {
+    it should s"extract ${file._1} successfully to ${f.getAbsoluteFile(target)}" in {
       f.extract()
-      val nf = new File(f.getAbsPath(target))
+      val nf = f.getAbsoluteFile(target)
+
       assert(nf.exists())
       assert(nf.listFiles().length > 0)
     }
@@ -49,7 +48,8 @@ class AutoSpec extends TestAbstract("ingressAuto") with BeforeAndAfter {
 
     it should s"not extract ${file._1}" in {
       f.extract()
-      val nf = new File(f.getAbsPath(target))
+      val nf = f.getAbsoluteFile(target)
+
       assert(!nf.exists())
     }
   }}

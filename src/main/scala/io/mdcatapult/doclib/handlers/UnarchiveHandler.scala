@@ -110,23 +110,36 @@ class UnarchiveHandler(
         .toFutureOption()
     }
 
+  /** Handler for the unarchive consumer.
+    * @param msg message to process
+    * @param key routing key from rabbitmq
+    * @return
+    */
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
-    (for {
-      doc: DoclibDoc <- OptionT(fetch(msg.id))
-      if !docExtractor.isRunRecently(doc)
-      started: UpdateResult <- OptionT(flags.start(doc))
-      unarchived <- OptionT.fromOption[Future](unarchive(doc))
-      _ <- OptionT(enqueue(unarchived, doc))
-      _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
 
-    } yield (unarchived, doc)).value.andThen({
-      case Success(result) => result match {
-        case Some(r) =>
-          supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
-          println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
-        case None => throw new Exception("Unidentified error occurred")
-      }
+    val unarchivedDocT: OptionT[Future, (List[String], DoclibDoc)] =
+      for {
+        doc: DoclibDoc <- OptionT(fetch(msg.id))
+        if !docExtractor.isRunRecently(doc)
+        started: UpdateResult <- OptionT(flags.start(doc))
+        unarchived <- OptionT.fromOption[Future](unarchive(doc))
+        _ <- OptionT(enqueue(unarchived, doc))
+        _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
+
+      } yield unarchived -> doc
+
+    val unarchivedDoc: Future[Option[(List[String], DoclibDoc)]] =
+      unarchivedDocT.value
+
+    unarchivedDoc.andThen({
+      case Success(result) =>
+        result match {
+          case Some(r) =>
+            supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
+            println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
+          case None => throw new Exception("Unidentified error occurred")
+        }
       case Failure(_) =>
         Try(Await.result(fetch(msg.id), Duration.Inf)) match {
           case Success(value: Option[DoclibDoc]) => value match {
