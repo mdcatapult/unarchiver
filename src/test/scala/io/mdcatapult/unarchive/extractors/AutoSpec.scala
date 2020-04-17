@@ -31,11 +31,10 @@ class AutoSpec extends TestAbstract("ingressAuto") with BeforeAndAfter {
 
   files foreach  { file: (String, Int, String) => {
     val f = new Auto(getPath(file._1))
-    val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
+    val nf = f.targetFile
 
-    it should s"extract ${file._1} successfully to ${f.getAbsoluteFile(target)}" in {
+    it should s"extract ${file._1} successfully to $nf" in {
       f.extract()
-      val nf = f.getAbsoluteFile(target)
 
       assert(nf.exists())
       assert(nf.listFiles().length > 0)
@@ -44,11 +43,10 @@ class AutoSpec extends TestAbstract("ingressAuto") with BeforeAndAfter {
 
   zeroLengthFiles foreach  { file: (String, Int, String) => {
     val f = new Auto(getPath(file._1))
-    val target = f.getTargetPath(getPath(file._1), config.getString("unarchive.to.path"), Some("unarchived"))
 
     it should s"not extract ${file._1}" in {
       f.extract()
-      val nf = f.getAbsoluteFile(target)
+      val nf = f.targetFile
 
       assert(!nf.exists())
     }

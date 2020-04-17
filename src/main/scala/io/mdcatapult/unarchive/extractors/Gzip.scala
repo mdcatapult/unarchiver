@@ -1,6 +1,7 @@
 package io.mdcatapult.unarchive.extractors
 
 import java.io.{BufferedInputStream, FileInputStream, InputStream}
+import java.nio.file.Path
 import java.util.Date
 
 import com.typesafe.config.Config
@@ -26,7 +27,7 @@ object Gzip {
 
 class Gzip(source: String)(implicit config: Config) extends Extractor[GzipArchiveEntry](source) {
 
-  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(getAbsoluteFile(source)))
+  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(file))
   val cis: CompressorInputStream = getCompressorInputStream
 
   def getCompressorInputStream: CompressorInputStream = new CompressorStreamFactory().createCompressorInputStream(input)
@@ -41,7 +42,7 @@ class Gzip(source: String)(implicit config: Config) extends Extractor[GzipArchiv
 
   def extractFile(): GzipArchiveEntry => Option[String] = _ => {
     val fileName = removeExtension(FilenameUtils.getName(source))
-    val relPath = s"$targetPath/$fileName"
+    val relPath = Path.of(s"$targetPath/$fileName")
 
     writeAllContent(doclibRoot, relPath) {
       out => IOUtils.copy(Gzip.filterOutRData(cis), out)

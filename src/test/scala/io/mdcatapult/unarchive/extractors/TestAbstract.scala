@@ -8,7 +8,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 
 class TestAbstract(tempDir: String) extends AnyFlatSpec with DirectoryDelete with BeforeAndAfterAll {
 
-  def getPath(file: String): String = s"$file"
+  def getPath(file: String): String = file
 
   implicit val config: Config = ConfigFactory.parseString(
     s"""
@@ -31,7 +31,7 @@ class TestAbstract(tempDir: String) extends AnyFlatSpec with DirectoryDelete wit
 
   override def afterAll(): Unit = {
     // These may or may not exist but are all removed anyway
-    deleteDirectories(List(pwd/s"test-assets/$tempDir"))
+    deleteDirectories(List(pwd/"test-assets"/tempDir))
   }
 
 }
