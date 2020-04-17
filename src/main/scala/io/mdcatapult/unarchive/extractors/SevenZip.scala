@@ -1,7 +1,5 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.io.{File, FileOutputStream}
-
 import com.typesafe.config.Config
 import org.apache.commons.compress.archivers.sevenz.{SevenZArchiveEntry, SevenZFile}
 
@@ -9,22 +7,21 @@ import scala.jdk.CollectionConverters._
 
 class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZArchiveEntry](source) {
 
-  val file: SevenZFile =  new SevenZFile(new File(getAbsPath(source)))
+  private val sevenZFile = new SevenZFile(file)
 
-  def getEntries: Iterator[SevenZArchiveEntry] = file.getEntries.iterator.asScala.filterNot(_.getSize == 0)
+  override def getEntries: Iterator[SevenZArchiveEntry] = sevenZFile.getEntries.iterator.asScala.filterNot(_.getSize == 0)
 
-  def extractFile(): SevenZArchiveEntry => Option[String] = (entry: SevenZArchiveEntry) => {
-    file.getNextEntry
-    val content = new Array[Byte](entry.getSize.asInstanceOf[Int])
-    file.read(content, 0, content.length)
-    val relPath = s"$targetPath/${entry.getName}"
-    val target = new File(getAbsPath(relPath))
-    target.getParentFile.mkdirs()
+  override def extractFile(): SevenZArchiveEntry => Option[String] =
+    (entry: SevenZArchiveEntry) => {
+      sevenZFile.getNextEntry
 
-    val output = new FileOutputStream(target)
-    output.write(content)
-    output.close()
+      val content = new Array[Byte](entry.getSize.asInstanceOf[Int])
+      sevenZFile.read(content, 0, content.length)
 
-    Option(relPath)
-  }
+      writeAllContent(doclibRoot, targetPath.resolve(entry.getName)) {
+        _.write(content)
+      }
+    }
+
+  override def close(): Unit = sevenZFile.close()
 }

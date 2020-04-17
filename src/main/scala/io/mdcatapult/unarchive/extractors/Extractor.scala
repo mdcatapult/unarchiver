@@ -1,18 +1,21 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.nio.file.Paths
+import java.io.File
+import java.nio.file.{Path, Paths}
 
 import com.typesafe.config.Config
 
 abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) {
 
+  private val localTargetDir = config.getString("doclib.local.target-dir")
+  private val unarchiveToDir = config.getString("unarchive.to.path")
+  private val tempDir = config.getString("doclib.local.temp-dir")
 
-  lazy val targetPath: String = getTargetPath(source, config.getString("unarchive.to.path"), Some("unarchived"))
-  val doclibRoot: String = s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/"
+  val targetPath: Path = getTargetPath(source, unarchiveToDir, Some("unarchived"))
+  val doclibRoot: Path = Path.of(s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/")
 
-  def getAbsPath(path: String): String = {
-    Paths.get(doclibRoot, path).toAbsolutePath.toString
-  }
+  val file: File = absoluteFile(doclibRoot, Path.of(source))
+  val targetFile: File = absoluteFile(doclibRoot, targetPath)
 
   /**
     * determines common root paths for two path string
@@ -22,12 +25,20 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
   protected def commonPath(paths: List[String]): String = {
     val SEP = "/"
     val BOUNDARY_REGEX = s"(?=[$SEP])(?<=[^$SEP])|(?=[^$SEP])(?<=[$SEP])"
+
     def common(a: List[String], b: List[String]): List[String] = (a, b) match {
       case (aa :: as, bb :: bs) if aa equals bb => aa :: common(as, bs)
       case _ => Nil
     }
-    if (paths.length < 2) paths.headOption.getOrElse("")
-    else paths.map(_.split(BOUNDARY_REGEX).toList).reduceLeft(common).mkString
+
+    paths match {
+      case List() =>
+        ""
+      case List(x) =>
+        x
+      case _ =>
+        paths.map(_.split(BOUNDARY_REGEX).toList).reduceLeft(common).mkString
+    }
   }
 
   /**
@@ -35,23 +46,26 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
     * @param source String
     * @return String full path to new target
     */
-  def getTargetPath(source: String, base: String, prefix: Option[String] = None): String = {
+  def getTargetPath(source: String, base: String, prefix: Option[String] = None): Path = {
     val targetRoot = base.replaceAll("/+$", "")
     val regex = """(.*)/(.*)$""".r
+
     source match {
       case regex(path, file) =>
         val c = commonPath(List(targetRoot, path))
-        val targetPath  = scrub(path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", ""))
-        Paths.get(config.getString("doclib.local.temp-dir"), targetRoot, targetPath, s"${prefix.getOrElse("")}_$file").toString
-      case _ => source
+        val scrubbedPath  = scrub(path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", ""))
+
+        Paths.get(tempDir, targetRoot, scrubbedPath, s"${prefix.getOrElse("")}_$file")
+
+      case _ => new File(source).toPath
     }
   }
 
-  def scrub(path: String):String  = path match {
-    case path if path.startsWith(config.getString("doclib.local.target-dir")) =>
-      scrub(path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", ""))
-    case path if path.startsWith(config.getString("unarchive.to.path"))  =>
-      scrub(path.replaceFirst(s"^${config.getString("unarchive.to.path")}/*", ""))
+  def scrub(path: String):String = path match {
+    case path if path.startsWith(localTargetDir) =>
+      scrub(path.replaceFirst(s"^$localTargetDir/*", ""))
+    case path if path.startsWith(unarchiveToDir)  =>
+      scrub(path.replaceFirst(s"^$unarchiveToDir/*", ""))
     case _ => path
   }
 
@@ -64,9 +78,17 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
     */
   def extractFile(): ArchiveEntry => Option[String]
 
+  /** Close any open resources. */
+  def close(): Unit
+
   /** Extract all archive entries into files - one file per entry.
     *
     * @return list of file names or all written entries
     */
-  def extract(): List[String] = getEntries.map(extractFile()).toList.flatten
+  def extract(): List[String] =
+    try {
+      getEntries.map(extractFile()).toList.flatten
+    } finally {
+      close()
+    }
 }

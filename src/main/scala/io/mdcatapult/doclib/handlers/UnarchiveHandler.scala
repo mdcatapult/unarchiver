@@ -7,8 +7,8 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.concurrency.LimitedExecution
 import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, Origin}
-import io.mdcatapult.doclib.util.DoclibFlags
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, DoclibFlagState, Origin}
+import io.mdcatapult.doclib.util.{DoclibFlags, nowUtc}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.unarchive.extractors.{Auto, Gzip, SevenZip}
 import org.apache.commons.compress.archivers.ArchiveException
@@ -88,20 +88,26 @@ class UnarchiveHandler(
       Future.successful(Some(true))
     }
 
-  def unarchive(document: DoclibDoc): Option[List[String]] =
+  def unarchive(document: DoclibDoc): Option[List[String]] = {
+    val sourcePath = document.source
+
     Try(document.mimetype match {
       // try as compressed archive, else try as compressed file
-      case "application/gzip" => Try(new Auto(document.source).extract()) match {
-        case Success(r) => r
-        case Failure(_: ArchiveException) => new Gzip(document.source).extract()
-        case Failure(e) => throw e
-      }
-      case "application/x-7z-compressed" => new SevenZip(document.source).extract()
-      case _ => new Auto(document.source).extract()
+      case "application/gzip" =>
+        Try(new Auto(sourcePath).extract()) match {
+          case Success(r) => r
+          case Failure(_: ArchiveException) => new Gzip(sourcePath).extract()
+          case Failure(e) => throw e
+        }
+      case "application/x-7z-compressed" =>
+        new SevenZip(sourcePath).extract()
+      case _ =>
+        new Auto(sourcePath).extract()
     }) match {
       case Success(result) => Some(result)
       case Failure(exception) => throw exception
     }
+  }
 
   def fetch(id: String): Future[Option[DoclibDoc]] =
     readLimit(collection, "fetch document by id") {
@@ -110,23 +116,40 @@ class UnarchiveHandler(
         .toFutureOption()
     }
 
+  /** Handler for the unarchive consumer.
+    * @param msg message to process
+    * @param key routing key from rabbitmq
+    * @return
+    */
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
-    (for {
-      doc: DoclibDoc <- OptionT(fetch(msg.id))
-      if !docExtractor.isRunRecently(doc)
-      started: UpdateResult <- OptionT(flags.start(doc))
-      unarchived <- OptionT.fromOption[Future](unarchive(doc))
-      _ <- OptionT(enqueue(unarchived, doc))
-      _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
 
-    } yield (unarchived, doc)).value.andThen({
-      case Success(result) => result match {
-        case Some(r) =>
-          supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
-          println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
-        case None => throw new Exception("Unidentified error occurred")
-      }
+    val unarchivedDocT: OptionT[Future, (List[String], DoclibDoc)] =
+      for {
+        doc: DoclibDoc <- OptionT(fetch(msg.id))
+        if !docExtractor.isRunRecently(doc)
+        started: UpdateResult <- OptionT(flags.start(doc))
+        unarchived <- OptionT.fromOption[Future](unarchive(doc))
+        _ <- OptionT(enqueue(unarchived, doc))
+        _ <- OptionT(
+          flags.end(
+            doc,
+            state = Option(DoclibFlagState(unarchived.length.toString, nowUtc.now())),
+            noCheck = started.getModifiedCount > 0
+          ))
+      } yield unarchived -> doc
+
+    val unarchivedDoc: Future[Option[(List[String], DoclibDoc)]] =
+      unarchivedDocT.value
+
+    unarchivedDoc.andThen({
+      case Success(result) =>
+        result match {
+          case Some(r) =>
+            supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
+            println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
+          case None => throw new Exception("Unidentified error occurred")
+        }
       case Failure(_) =>
         Try(Await.result(fetch(msg.id), Duration.Inf)) match {
           case Success(value: Option[DoclibDoc]) => value match {

@@ -1,7 +1,6 @@
 package io.mdcatapult.unarchive.extractors
 
-import java.io.{BufferedInputStream, File, FileInputStream, FileOutputStream}
-import java.nio.file.Paths
+import java.io.{BufferedInputStream, FileInputStream}
 
 import com.typesafe.config.Config
 import org.apache.commons.compress.archivers.{ArchiveEntry, ArchiveInputStream, ArchiveStreamFactory}
@@ -12,35 +11,31 @@ import scala.util.{Failure, Success, Try}
 
 class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEntry](source) {
 
-  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(getAbsPath(source)))
-  val ais: ArchiveInputStream = getArchiveInputStream
+  private val ais: ArchiveInputStream = {
+    val input = new BufferedInputStream(new FileInputStream(file))
+    val cis =
+      Try(new CompressorStreamFactory().createCompressorInputStream(input)) match {
+        case Success(cs) => new BufferedInputStream(cs)
+        case Failure(_) => input
+      }
 
-  def getArchiveInputStream: ArchiveInputStream =
-    new ArchiveStreamFactory().createArchiveInputStream(
-      Try (new CompressorStreamFactory().createCompressorInputStream(input) ) match {
-        case Success (cs) => new BufferedInputStream(cs)
-        case Failure (_) => input
-      })
+    new ArchiveStreamFactory().createArchiveInputStream(cis)
+  }
 
-  def getEntries: Iterator[ArchiveEntry] = {
+  override def getEntries: Iterator[ArchiveEntry] = {
     Iterator.continually(ais.getNextEntry)
       .takeWhile(ais.canReadEntryData)
       .filterNot(_.isDirectory)
       .filterNot(_.getSize == 0)
   }
 
-  def extractFile(): ArchiveEntry => Option[String] = (entry: ArchiveEntry) => {
-    val relPath = Paths.get(targetPath, entry.getName).toString
-    val target = new File(getAbsPath(relPath))
-    target.getParentFile.mkdirs()
+  override def extractFile(): ArchiveEntry => Option[String] = (entry: ArchiveEntry) => {
+    val relPath = targetPath.resolve(entry.getName)
 
-    val ois = new FileOutputStream(target)
-
-    IOUtils.copy(ais, ois)
-    ois.flush()
-    ois.close()
-
-    Option(relPath)
+    writeAllContent(doclibRoot, relPath) {
+      out => IOUtils.copy(ais, out)
+    }
   }
 
+  override def close(): Unit = ais.close()
 }
