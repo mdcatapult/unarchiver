@@ -11,24 +11,25 @@ import scala.util.{Failure, Success, Try}
 
 class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEntry](source) {
 
-  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(file))
-  val ais: ArchiveInputStream = getArchiveInputStream
+  private val ais: ArchiveInputStream = {
+    val input = new BufferedInputStream(new FileInputStream(file))
+    val cis =
+      Try(new CompressorStreamFactory().createCompressorInputStream(input)) match {
+        case Success(cs) => new BufferedInputStream(cs)
+        case Failure(_) => input
+      }
 
-  def getArchiveInputStream: ArchiveInputStream =
-    new ArchiveStreamFactory().createArchiveInputStream(
-      Try (new CompressorStreamFactory().createCompressorInputStream(input) ) match {
-        case Success (cs) => new BufferedInputStream(cs)
-        case Failure (_) => input
-      })
+    new ArchiveStreamFactory().createArchiveInputStream(cis)
+  }
 
-  def getEntries: Iterator[ArchiveEntry] = {
+  override def getEntries: Iterator[ArchiveEntry] = {
     Iterator.continually(ais.getNextEntry)
       .takeWhile(ais.canReadEntryData)
       .filterNot(_.isDirectory)
       .filterNot(_.getSize == 0)
   }
 
-  def extractFile(): ArchiveEntry => Option[String] = (entry: ArchiveEntry) => {
+  override def extractFile(): ArchiveEntry => Option[String] = (entry: ArchiveEntry) => {
     val relPath = targetPath.resolve(entry.getName)
 
     writeAllContent(doclibRoot, relPath) {
@@ -36,4 +37,5 @@ class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEnt
     }
   }
 
+  override def close(): Unit = ais.close()
 }
