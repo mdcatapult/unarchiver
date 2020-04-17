@@ -7,8 +7,8 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.concurrency.LimitedExecution
 import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, Origin}
-import io.mdcatapult.doclib.util.DoclibFlags
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, DoclibFlagState, Origin}
+import io.mdcatapult.doclib.util.{DoclibFlags, nowUtc}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.unarchive.extractors.{Auto, Gzip, SevenZip}
 import org.apache.commons.compress.archivers.ArchiveException
@@ -131,8 +131,12 @@ class UnarchiveHandler(
         started: UpdateResult <- OptionT(flags.start(doc))
         unarchived <- OptionT.fromOption[Future](unarchive(doc))
         _ <- OptionT(enqueue(unarchived, doc))
-        _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
-
+        _ <- OptionT(
+          flags.end(
+            doc,
+            state = Option(DoclibFlagState(unarchived.length.toString, nowUtc.now())),
+            noCheck = started.getModifiedCount > 0
+          ))
       } yield unarchived -> doc
 
     val unarchivedDoc: Future[Option[(List[String], DoclibDoc)]] =

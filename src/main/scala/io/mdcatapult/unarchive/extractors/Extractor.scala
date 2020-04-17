@@ -78,9 +78,17 @@ abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) 
     */
   def extractFile(): ArchiveEntry => Option[String]
 
+  /** Close any open resources. */
+  def close(): Unit
+
   /** Extract all archive entries into files - one file per entry.
     *
     * @return list of file names or all written entries
     */
-  def extract(): List[String] = getEntries.map(extractFile()).toList.flatten
+  def extract(): List[String] =
+    try {
+      getEntries.map(extractFile()).toList.flatten
+    } finally {
+      close()
+    }
 }

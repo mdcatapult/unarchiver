@@ -11,36 +11,33 @@ import org.apache.commons.compress.compressors.{CompressorInputStream, Compresso
 import org.apache.commons.io.FilenameUtils.removeExtension
 import org.apache.commons.io.{FilenameUtils, IOUtils}
 
-class GzipArchiveEntry(name: String, cis: CompressorInputStream) extends ArchiveEntry {
-
-  def getName: String = name
-  def getSize: Long = cis.getBytesRead
-  def isDirectory: Boolean = false
-  def getLastModifiedDate: Date = new Date()
-}
-
 object Gzip {
 
   val filterOutRData: InputStream => MagicNumberFilterInputStream =
     MagicNumberFilterInputStream.toTruncateAnyWith(List("RDX2", "RDA2").map(_.getBytes))
 }
 
-class Gzip(source: String)(implicit config: Config) extends Extractor[GzipArchiveEntry](source) {
+class Gzip(source: String)(implicit config: Config) extends Extractor[ArchiveEntry](source) {
 
-  val input: BufferedInputStream = new BufferedInputStream(new FileInputStream(file))
-  val cis: CompressorInputStream = getCompressorInputStream
+  private val cis: CompressorInputStream = {
+    val input = new BufferedInputStream(new FileInputStream(file))
+    new CompressorStreamFactory().createCompressorInputStream(input)
+  }
 
-  def getCompressorInputStream: CompressorInputStream = new CompressorStreamFactory().createCompressorInputStream(input)
+  private class Entry(name: String) extends ArchiveEntry {
+    def getName: String = name
+    def getSize: Long = cis.getBytesRead
+    def isDirectory: Boolean = false
+    def getLastModifiedDate: Date = new Date()
+  }
 
   // disable functions
-  def getEntries: Iterator[GzipArchiveEntry] =
-    Iterator[GzipArchiveEntry](
-      new GzipArchiveEntry(
-        removeExtension(FilenameUtils.getName(source)),
-        cis)
-    )
+  override def getEntries: Iterator[ArchiveEntry] = {
+    val name = removeExtension(FilenameUtils.getName(source))
+    Iterator(new Entry(name))
+  }
 
-  def extractFile(): GzipArchiveEntry => Option[String] = _ => {
+  override def extractFile(): ArchiveEntry => Option[String] = _ => {
     val fileName = removeExtension(FilenameUtils.getName(source))
     val relPath = Path.of(s"$targetPath/$fileName")
 
@@ -49,4 +46,5 @@ class Gzip(source: String)(implicit config: Config) extends Extractor[GzipArchiv
     }
   }
 
+  override def close(): Unit = cis.close()
 }

@@ -3,8 +3,9 @@ package io.mdcatapult.unarchive.extractors
 class ExtractorSpec extends TestAbstract("ingress") {
 
   class dummy[T](source: String) extends Extractor[T](source) {
-    def getEntries: Iterator[T] = ???
-    def extractFile(): T => Option[String] = ???
+    override def getEntries: Iterator[T] = ???
+    override def extractFile(): T => Option[String] = ???
+    override def close(): Unit = ()
   }
 
   "getTargetPath" should "return a valid path for a local path" in {

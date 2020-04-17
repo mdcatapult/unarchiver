@@ -9,9 +9,9 @@ class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZ
 
   private val sevenZFile = new SevenZFile(file)
 
-  def getEntries: Iterator[SevenZArchiveEntry] = sevenZFile.getEntries.iterator.asScala.filterNot(_.getSize == 0)
+  override def getEntries: Iterator[SevenZArchiveEntry] = sevenZFile.getEntries.iterator.asScala.filterNot(_.getSize == 0)
 
-  def extractFile(): SevenZArchiveEntry => Option[String] =
+  override def extractFile(): SevenZArchiveEntry => Option[String] =
     (entry: SevenZArchiveEntry) => {
       sevenZFile.getNextEntry
 
@@ -22,4 +22,6 @@ class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZ
         _.write(content)
       }
     }
+
+  override def close(): Unit = sevenZFile.close()
 }
