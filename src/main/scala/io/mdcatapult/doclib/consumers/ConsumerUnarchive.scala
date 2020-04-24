@@ -27,7 +27,7 @@ object ConsumerUnarchive extends AbstractConsumer("consumer-unarchive") {
       mongo.database.getCollection(config.getString("mongo.derivative_collection"))
 
     def queue[T <: Envelope](property: String)(implicit f: Format[T]): Queue[T] =
-      new Queue[T](config.getString(property), consumerName = Some("unarchiver"))
+      Queue[T](config.getString(property), consumerName = Some("unarchiver"))
 
     /** initialise queues **/
     val archiver: Queue[ArchiveMsg] = queue("doclib.archive.queue")
