@@ -8,17 +8,17 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.concurrency.LimitedExecution
 import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
+import io.mdcatapult.doclib.models._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, DoclibFlagState, Origin, ParentChildMapping}
 import io.mdcatapult.doclib.util.{DoclibFlags, nowUtc}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.unarchive.extractors.{Auto, Gzip, SevenZip}
 import org.apache.commons.compress.archivers.ArchiveException
 import org.bson.types.ObjectId
-import org.mongodb.scala.{Completed, MongoCollection}
+import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.Updates._
-import org.mongodb.scala.result.UpdateResult
+import org.mongodb.scala.result.{InsertManyResult, UpdateResult}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -62,7 +62,7 @@ class UnarchiveHandler(
     Future.successful(Some(true))
   }
 
-  def persist(doc: DoclibDoc, unarchived: List[String]): Future[Option[Completed]] =
+  def persist(doc: DoclibDoc, unarchived: List[String]): Future[Option[InsertManyResult]] =
     derivativesCollection.insertMany(createDerivativesFromPaths(doc, unarchived)).toFutureOption()
 
   def archive(doc: DoclibDoc, archivable: List[Derivative]): Future[Option[Any]] =
@@ -138,7 +138,7 @@ class UnarchiveHandler(
         if !docExtractor.isRunRecently(doc)
         started: UpdateResult <- OptionT(flags.start(doc))
         unarchived <- OptionT.fromOption[Future](unarchive(doc))
-        archivable <- OptionT.liftF(persist(doc, unarchived))
+        _ <- OptionT.liftF(persist(doc, unarchived))
 //        result ← OptionT(archive(doc, archivable))
         _ <- OptionT(enqueue(unarchived, doc))
         _ <- OptionT(
