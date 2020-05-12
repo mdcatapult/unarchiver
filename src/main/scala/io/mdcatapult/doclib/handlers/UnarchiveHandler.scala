@@ -122,7 +122,7 @@ class UnarchiveHandler(
     */
   def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
   //TODO This same pattern is used in other consumers so maybe we can move to a shared lib in common or a shared consumer lib.
-    paths.map(d => ParentChildMapping(_id = UUID.randomUUID(), childPath = d, parent = doc._id, consumer = Some("unarchive_consumer")))
+    paths.map(d => ParentChildMapping(_id = UUID.randomUUID(), childPath = d, parent = doc._id, consumer = Some("unarchived")))
 
   /** Handler for the unarchive consumer.
     * @param msg message to process
