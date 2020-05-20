@@ -1,13 +1,15 @@
 package io.mdcatapult.doclib.handlers
 
+import java.util.UUID
+
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.concurrency.LimitedExecution
 import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
+import io.mdcatapult.doclib.models._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, DoclibFlagState, Origin}
 import io.mdcatapult.doclib.util.{DoclibFlags, nowUtc}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.unarchive.extractors.{Auto, Gzip, SevenZip}
@@ -16,7 +18,7 @@ import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.Updates._
-import org.mongodb.scala.result.UpdateResult
+import org.mongodb.scala.result.{InsertManyResult, UpdateResult}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -31,7 +33,8 @@ class UnarchiveHandler(
                       )
                       (implicit ec: ExecutionContext,
                        config: Config,
-                       collection: MongoCollection[DoclibDoc]
+                       collection: MongoCollection[DoclibDoc],
+                       derivativesCollection: MongoCollection[ParentChildMapping]
                       ) extends LazyLogging {
 
   private val docExtractor = DoclibDocExtractor()
@@ -59,13 +62,8 @@ class UnarchiveHandler(
     Future.successful(Some(true))
   }
 
-  def persist(doc: DoclibDoc, unarchived: List[String]): Future[List[Derivative]] =
-    writeLimit(collection, "save derivatives") {
-      _.updateOne(equal("_id", doc._id),
-        addEachToSet("derivatives", unarchived.map(path => Derivative("unarchived", path)):_*),
-      ).toFutureOption().map(_ => doc.derivatives.getOrElse(List[Derivative]())
-        .filter(d => d.`type` == "unarchived" && !unarchived.contains(d.path)))
-    }
+  def persist(doc: DoclibDoc, unarchived: List[String]): Future[Option[InsertManyResult]] =
+    derivativesCollection.insertMany(createDerivativesFromPaths(doc, unarchived)).toFutureOption()
 
   def archive(doc: DoclibDoc, archivable: List[Derivative]): Future[Option[Any]] =
     if (archivable.nonEmpty) {
@@ -116,6 +114,16 @@ class UnarchiveHandler(
         .toFutureOption()
     }
 
+  /**
+    * Create list of parent child mappings
+    * @param doc DoclibDoc
+    * @param paths List[String]
+    * @return List[Derivative] unique list of derivatives
+    */
+  def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
+  //TODO This same pattern is used in other consumers so maybe we can move to a shared lib in common or a shared consumer lib.
+    paths.map(d => ParentChildMapping(_id = UUID.randomUUID(), childPath = d, parent = doc._id, consumer = Some("unarchived")))
+
   /** Handler for the unarchive consumer.
     * @param msg message to process
     * @param key routing key from rabbitmq
@@ -130,6 +138,8 @@ class UnarchiveHandler(
         if !docExtractor.isRunRecently(doc)
         started: UpdateResult <- OptionT(flags.start(doc))
         unarchived <- OptionT.fromOption[Future](unarchive(doc))
+        _ <- OptionT.liftF(persist(doc, unarchived))
+//        result ← OptionT(archive(doc, archivable))
         _ <- OptionT(enqueue(unarchived, doc))
         _ <- OptionT(
           flags.end(
