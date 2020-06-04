@@ -29,7 +29,6 @@ object ConsumerUnarchive extends AbstractConsumer("consumer-unarchive") {
     def queue[T <: Envelope](property: String)(implicit f: Format[T]): Queue[T] =
       Queue[T](config.getString(property), consumerName = Some("unarchiver"))
 
-    /** initialise queues **/
     val archiver: Queue[ArchiveMsg] = queue("doclib.archive.queue")
     val supervisor: Queue[SupervisorMsg] = queue("doclib.supervisor.queue")
     val prefetch: Queue[PrefetchMsg] = queue("downstream.queue")
