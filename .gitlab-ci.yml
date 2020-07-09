@@ -58,7 +58,7 @@ publish:
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
   script:
     - >
-    /kaniko/executor --context $CI_PROJECT_DIR
+      /kaniko/executor --context $CI_PROJECT_DIR
       --build-arg VERSION=$CI_COMMIT_REF_SLUG
       --build-arg VERSION_HASH=$CI_COMMIT_SHORT_SHA
       --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
@@ -91,12 +91,12 @@ publish-master:
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
   script:
     - >
-    /kaniko/executor --context $CI_PROJECT_DIR
+      /kaniko/executor --context $CI_PROJECT_DIR
       --build-arg VERSION=$CI_COMMIT_REF_NAME
       --build-arg VERSION_HASH=$CI_COMMIT_SHORT_SHA
       --destination $CI_REGISTRY_IMAGE
     - >
-    /kaniko/executor --context $CI_PROJECT_DIR
+      /kaniko/executor --context $CI_PROJECT_DIR
       --build-arg VERSION=$CI_COMMIT_REF_NAME
       --build-arg VERSION_HASH=$CI_COMMIT_SHORT_SHA
       --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
