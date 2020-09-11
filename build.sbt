@@ -11,7 +11,7 @@ val meta = """META.INF/(blueprint|cxf).*""".r
 lazy val root = (project in file(".")).
   settings(
     name              := "consumer-unarchive",
-    scalaVersion      := "2.13.2",
+    scalaVersion      := "2.13.3",
     useCoursier   := false,
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
