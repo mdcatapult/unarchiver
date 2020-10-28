@@ -2,11 +2,11 @@ package io.mdcatapult.unarchive.extractors
 
 import better.files.Dsl.pwd
 import com.typesafe.config.{Config, ConfigFactory}
-import io.mdcatapult.doclib.util.DirectoryDelete
+import io.mdcatapult.util.path.DirectoryDeleter.deleteDirectories
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 
-class TestAbstract(tempDir: String) extends AnyFlatSpec with DirectoryDelete with BeforeAndAfterAll {
+class TestAbstract(tempDir: String) extends AnyFlatSpec with BeforeAndAfterAll {
 
   def getPath(file: String): String = file
 

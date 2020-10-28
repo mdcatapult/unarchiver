@@ -4,7 +4,8 @@ import Release._
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
-lazy val doclibCommonVersion = "0.0.70"
+lazy val doclibCommonVersion = "1.0.2-SNAPSHOT"
+lazy val kleinUtilVersion = "1.1.1-SNAPSHOT"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
@@ -45,6 +46,7 @@ lazy val root = (project in file(".")).
       "org.typelevel" %% "cats-kernel"                % catsVersion,
       "org.typelevel" %% "cats-core"                  % catsVersion,
       "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
+      "io.mdcatapult.klein" %% "util"                 % kleinUtilVersion,
     ).map(
       _.exclude(org = "javax.ws.rs", name = "javax.ws.rs-api")
         .exclude(org = "com.google.protobuf", name = "protobuf-java")
