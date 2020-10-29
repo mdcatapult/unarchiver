@@ -42,7 +42,7 @@ class UnarchiveHandler(
 
   private val docExtractor = DoclibDocExtractor()
   private val version = Version.fromConfig(config)
-  private val flags = new MongoFlagStore(version, DoclibDocExtractor(), collection, nowUtc)
+  private val flags = new MongoFlagStore(version, docExtractor, collection, nowUtc)
 
   def enqueue(extracted: List[String], doc: DoclibDoc): Future[Option[Boolean]] = {
     // Let prefetch know that it is an unarchived derivative
