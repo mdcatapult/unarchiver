@@ -157,15 +157,15 @@ class UnarchiveHandler(
       case Success(result) =>
         result match {
           case Some(r) =>
-            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "success")
+            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "success").inc()
             supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
             println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
           case None =>
-            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "empty_doc_error")
+            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "empty_doc_error").inc()
             throw new Exception("Unidentified error occurred")
         }
       case Failure(_) =>
-        handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "unknown_error")
+        handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "unknown_error").inc()
         Try(Await.result(fetch(msg.id), Duration.Inf)) match {
           case Success(value: Option[DoclibDoc]) => value match {
             case Some(doc) => flagContext.error(doc, noCheck = true)
