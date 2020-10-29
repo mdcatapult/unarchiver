@@ -9,6 +9,7 @@ import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.{Envelope, Queue}
+import io.mdcatapult.util.admin.{Server => AdminServer}
 import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import org.mongodb.scala.MongoCollection
 import play.api.libs.json.Format
@@ -20,6 +21,8 @@ object ConsumerUnarchive extends AbstractConsumer("consumer-unarchive") {
 
   override def start()(implicit as: ActorSystem, m: Materializer, mongo: Mongo): SubscriptionRef = {
     import as.dispatcher
+
+    AdminServer(config).start()
 
     implicit val collection: MongoCollection[DoclibDoc] =
       mongo.database.getCollection(config.getString("mongo.collection"))
