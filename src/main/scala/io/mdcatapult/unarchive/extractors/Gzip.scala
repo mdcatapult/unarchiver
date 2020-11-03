@@ -5,7 +5,7 @@ import java.nio.file.Path
 import java.util.Date
 
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.loader.MagicNumberFilterInputStream
+import io.mdcatapult.util.io.MagicNumberFilterInputStream
 import org.apache.commons.compress.archivers.ArchiveEntry
 import org.apache.commons.compress.compressors.{CompressorInputStream, CompressorStreamFactory}
 import org.apache.commons.io.FilenameUtils.removeExtension
