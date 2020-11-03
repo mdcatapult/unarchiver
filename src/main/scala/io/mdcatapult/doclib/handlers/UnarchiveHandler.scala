@@ -8,6 +8,7 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.flag.{FlagContext, MongoFlagStore}
 import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
+import io.mdcatapult.doclib.metrics.Metrics.handlerCount
 import io.mdcatapult.doclib.models._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.klein.queue.Sendable
@@ -156,11 +157,15 @@ class UnarchiveHandler(
       case Success(result) =>
         result match {
           case Some(r) =>
+            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "success").inc()
             supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
             println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
-          case None => throw new Exception("Unidentified error occurred")
+          case None =>
+            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "empty_doc_error").inc()
+            throw new Exception("Unidentified error occurred")
         }
       case Failure(_) =>
+        handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "unknown_error").inc()
         Try(Await.result(fetch(msg.id), Duration.Inf)) match {
           case Success(value: Option[DoclibDoc]) => value match {
             case Some(doc) => flagContext.error(doc, noCheck = true)
