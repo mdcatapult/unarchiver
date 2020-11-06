@@ -6,19 +6,23 @@ import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import io.mdcatapult.doclib.concurrency.LimitedExecution
+import io.mdcatapult.doclib.flag.{FlagContext, MongoFlagStore}
 import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
+import io.mdcatapult.doclib.metrics.Metrics.handlerCount
 import io.mdcatapult.doclib.models._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.util.{DoclibFlags, nowUtc}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.unarchive.extractors.{Auto, Gzip, SevenZip}
+import io.mdcatapult.util.concurrency.LimitedExecution
+import io.mdcatapult.util.models.Version
+import io.mdcatapult.util.models.result.UpdatedResult
+import io.mdcatapult.util.time.nowUtc
 import org.apache.commons.compress.archivers.ArchiveException
 import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.Updates._
-import org.mongodb.scala.result.{InsertManyResult, UpdateResult}
+import org.mongodb.scala.result.InsertManyResult
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -38,8 +42,8 @@ class UnarchiveHandler(
                       ) extends LazyLogging {
 
   private val docExtractor = DoclibDocExtractor()
-
-  lazy val flags = new DoclibFlags(config.getString("doclib.flag"))
+  private val version = Version.fromConfig(config)
+  private val flags = new MongoFlagStore(version, docExtractor, collection, nowUtc)
 
   def enqueue(extracted: List[String], doc: DoclibDoc): Future[Option[Boolean]] = {
     // Let prefetch know that it is an unarchived derivative
@@ -47,7 +51,7 @@ class UnarchiveHandler(
     extracted.foreach(path => {
       prefetch.send(PrefetchMsg(
         source = path,
-        origin = Some(List(Origin(
+        origins = Some(List(Origin(
           scheme = "mongodb",
           metadata = Some(List(
             MetaString("db", config.getString("mongo.database")),
@@ -132,21 +136,18 @@ class UnarchiveHandler(
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
 
+    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("upstream.queue")))
+
     val unarchivedDocT: OptionT[Future, (List[String], DoclibDoc)] =
       for {
         doc: DoclibDoc <- OptionT(fetch(msg.id))
         if !docExtractor.isRunRecently(doc)
-        started: UpdateResult <- OptionT(flags.start(doc))
+        started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
         unarchived <- OptionT.fromOption[Future](unarchive(doc))
         _ <- OptionT.liftF(persist(doc, unarchived))
 //        result ← OptionT(archive(doc, archivable))
         _ <- OptionT(enqueue(unarchived, doc))
-        _ <- OptionT(
-          flags.end(
-            doc,
-            state = Option(DoclibFlagState(unarchived.length.toString, nowUtc.now())),
-            noCheck = started.getModifiedCount > 0
-          ))
+        _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
       } yield unarchived -> doc
 
     val unarchivedDoc: Future[Option[(List[String], DoclibDoc)]] =
@@ -156,14 +157,18 @@ class UnarchiveHandler(
       case Success(result) =>
         result match {
           case Some(r) =>
+            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "success").inc()
             supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
             println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
-          case None => throw new Exception("Unidentified error occurred")
+          case None =>
+            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "empty_doc_error").inc()
+            throw new Exception("Unidentified error occurred")
         }
       case Failure(_) =>
+        handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "unknown_error").inc()
         Try(Await.result(fetch(msg.id), Duration.Inf)) match {
           case Success(value: Option[DoclibDoc]) => value match {
-            case Some(doc) => flags.error(doc, noCheck = true)
+            case Some(doc) => flagContext.error(doc, noCheck = true)
             case _ => () // do nothing as error handling will capture
           }
           case Failure(_) => () // do nothing as error handling will capture

@@ -4,14 +4,14 @@ import Release._
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
-lazy val doclibCommonVersion = "0.0.70"
+lazy val doclibCommonVersion = "1.1.2"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
 lazy val root = (project in file(".")).
   settings(
     name              := "consumer-unarchive",
-    scalaVersion      := "2.13.2",
+    scalaVersion      := "2.13.3",
     useCoursier   := false,
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
@@ -71,6 +71,7 @@ lazy val root = (project in file(".")).
       case "META-INF/jpms.args" => MergeStrategy.discard
       case n if n.startsWith("application.conf") => MergeStrategy.concat
       case n if n.endsWith(".conf") => MergeStrategy.concat
+      case n if n.startsWith("logback.xml") => MergeStrategy.first
       case meta(_) => MergeStrategy.first
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
