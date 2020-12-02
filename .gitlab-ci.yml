@@ -112,7 +112,8 @@ publish-master:
       /kaniko/executor --context $CI_PROJECT_DIR
       --build-arg VERSION=$CI_COMMIT_REF_NAME
       --build-arg VERSION_HASH=$CI_COMMIT_SHORT_SHA
-      --destination $CI_REGISTRY_IMAGE--destination $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+      --destination $CI_REGISTRY_IMAGE
+      --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
   only:
     refs:
       - tags
