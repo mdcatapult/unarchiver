@@ -24,8 +24,7 @@ import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.Updates._
 import org.mongodb.scala.result.InsertManyResult
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class UnarchiveHandler(
@@ -145,7 +144,7 @@ class UnarchiveHandler(
         started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
         unarchived <- OptionT.fromOption[Future](unarchive(doc))
         _ <- OptionT.liftF(persist(doc, unarchived))
-//        result ← OptionT(archive(doc, archivable))
+        //  result ← OptionT(archive(doc, archivable)) //TODO add or remove this line of code
         _ <- OptionT(enqueue(unarchived, doc))
         _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
       } yield unarchived -> doc
@@ -153,7 +152,7 @@ class UnarchiveHandler(
     val unarchivedDoc: Future[Option[(List[String], DoclibDoc)]] =
       unarchivedDocT.value
 
-    unarchivedDoc.andThen({
+    unarchivedDoc.andThen {
       case Success(result) =>
         result match {
           case Some(r) =>
@@ -162,18 +161,22 @@ class UnarchiveHandler(
             println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
           case None =>
             handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "empty_doc_error").inc()
-            throw new Exception("Unidentified error occurred")
+            val message = "Unidentified error occurred"
+            logger.error(message, new Exception(message))
         }
       case Failure(_) =>
         handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "unknown_error").inc()
-        Try(Await.result(fetch(msg.id), Duration.Inf)) match {
-          case Success(value: Option[DoclibDoc]) => value match {
-            case Some(doc) => flagContext.error(doc, noCheck = true)
-            case _ => () // do nothing as error handling will capture
-          }
-          case Failure(_) => () // do nothing as error handling will capture
+
+        fetch(msg.id).map {
+          case Some(foundDoc) =>
+            flagContext.error(foundDoc, noCheck = true).andThen {
+              case Failure(e) => logger.error("error attempting error flag write", e)
+            }
+          case None =>
+            val message = s"could not find ${msg.id}"
+            logger.error(message, new Exception(message))
         }
-    })
+    }
   }
 
 }
