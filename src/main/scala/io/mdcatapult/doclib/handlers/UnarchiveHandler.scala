@@ -40,6 +40,7 @@ class UnarchiveHandler(
                        derivativesCollection: MongoCollection[ParentChildMapping]
                       ) extends LazyLogging {
 
+  private val consumerName = "consumer-unarchive"
   private val docExtractor = DoclibDocExtractor()
   private val version = Version.fromConfig(config)
   private val flags = new MongoFlagStore(version, docExtractor, collection, nowUtc)
@@ -135,6 +136,7 @@ class UnarchiveHandler(
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
 
+
     val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("upstream.queue")))
 
     val unarchivedDocT: OptionT[Future, (List[String], DoclibDoc)] =
@@ -156,27 +158,42 @@ class UnarchiveHandler(
       case Success(result) =>
         result match {
           case Some(r) =>
-            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "success").inc()
+            incrementHandlerCount("success")
             supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
             println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
           case None =>
-            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "empty_doc_error").inc()
+            incrementHandlerCount("empty_doc_error")
             val message = "Unidentified error occurred"
             logger.error(message, new Exception(message))
         }
-      case Failure(_) =>
-        handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "unknown_error").inc()
+      case Failure(e) =>
+        logger.error("error during handle process", e)
+        incrementHandlerCount("unknown_error")
 
-        fetch(msg.id).map {
-          case Some(foundDoc) =>
-            flagContext.error(foundDoc, noCheck = true).andThen {
-              case Failure(e) => logger.error("error attempting error flag write", e)
-            }
-          case None =>
-            val message = s"could not find ${msg.id}"
-            logger.error(message, new Exception(message))
+        fetch(msg.id).onComplete {
+          case Failure(e) =>
+            logger.error(s"error retrieving document", e)
+            incrementHandlerCount("error_retrieving_document")
+          case Success(value) => value match {
+            case Some(foundDoc) =>
+              flagContext.error(foundDoc, noCheck = true).andThen {
+                case Failure(e) =>
+                  incrementHandlerCount("error_attempting_error_flag_write")
+                  logger.error("error attempting error flag write", e)
+              }
+            case None =>
+              val message = f"${msg.id} - no document found"
+              logger.error(message, new Exception(message))
+              incrementHandlerCount("error_no_document")
+          }
         }
     }
   }
+
+  private def incrementHandlerCount(labels: String*): Unit = {
+    val labelsWithDefaults = Seq(consumerName, config.getString("upstream.queue")) ++ labels
+    handlerCount.labels(labelsWithDefaults: _*).inc()
+  }
+
 
 }
