@@ -21,9 +21,7 @@ class TestAbstract(tempDir: String) extends AnyFlatSpec with BeforeAndAfterAll {
       |  remote: {
       |    target-dir: "remote"
       |  }
-      |}
-      |unarchive {
-      |  to {
+      |  derivative {
       |    path: "derivatives"
       |  }
       |}

@@ -8,7 +8,7 @@ import com.typesafe.config.Config
 abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) {
 
   private val localTargetDir = config.getString("doclib.local.target-dir")
-  private val unarchiveToDir = config.getString("unarchive.to.path")
+  private val unarchiveToDir = config.getString("doclib.derivative.path")
   private val tempDir = config.getString("doclib.local.temp-dir")
 
   val targetPath: Path = getTargetPath(source, unarchiveToDir, Some("unarchived"))
