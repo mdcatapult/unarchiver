@@ -146,7 +146,6 @@ class UnarchiveHandler(
         started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
         unarchived <- OptionT.fromOption[Future](unarchive(doc))
         _ <- OptionT.liftF(persist(doc, unarchived))
-        //  result ← OptionT(archive(doc, archivable)) //TODO add or remove this line of code
         _ <- OptionT(enqueue(unarchived, doc))
         _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
       } yield unarchived -> doc
