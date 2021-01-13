@@ -7,7 +7,7 @@ import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.flag.{FlagContext, MongoFlagStore}
-import io.mdcatapult.doclib.messages.{ArchiveMsg, DoclibMsg, PrefetchMsg, SupervisorMsg}
+import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.metrics.Metrics.handlerCount
 import io.mdcatapult.doclib.models._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
@@ -21,7 +21,6 @@ import org.apache.commons.compress.archivers.ArchiveException
 import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters._
-import org.mongodb.scala.model.Updates._
 import org.mongodb.scala.result.InsertManyResult
 
 import scala.concurrent.duration.Duration
@@ -30,10 +29,8 @@ import scala.util.{Failure, Success, Try}
 
 class UnarchiveHandler(
                         prefetch: Sendable[PrefetchMsg],
-                        archiver: Sendable[ArchiveMsg],
                         supervisor: Sendable[SupervisorMsg],
                         readLimit: LimitedExecution,
-                        writeLimit: LimitedExecution,
                       )
                       (implicit ec: ExecutionContext,
                        config: Config,
@@ -47,15 +44,15 @@ class UnarchiveHandler(
 
   def enqueue(extracted: List[String], doc: DoclibDoc): Future[Option[Boolean]] = {
     // Let prefetch know that it is an unarchived derivative
-    val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "unarchived"))
+    val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", config.getString("consumer.name")))
     extracted.foreach(path => {
       prefetch.send(PrefetchMsg(
         source = path,
         origins = Some(List(Origin(
           scheme = "mongodb",
           metadata = Some(List(
-            MetaString("db", config.getString("mongo.database")),
-            MetaString("collection", config.getString("mongo.collection")),
+            MetaString("db", config.getString("mongo.doclib-database")),
+            MetaString("collection", config.getString("mongo.documents-collection")),
             MetaString("_id", doc._id.toHexString)))
         ))),
         tags = doc.tags,
@@ -68,27 +65,6 @@ class UnarchiveHandler(
 
   def persist(doc: DoclibDoc, unarchived: List[String]): Future[Option[InsertManyResult]] =
     derivativesCollection.insertMany(createDerivativesFromPaths(doc, unarchived)).toFutureOption()
-
-  def archive(doc: DoclibDoc, archivable: List[Derivative]): Future[Option[Any]] =
-    if (archivable.nonEmpty) {
-      writeLimit(collection, "archive doc") {
-        _.updateOne(equal("_id", doc._id),
-          pullByFilter(
-            equal("derivatives", or(
-              archivable.map(d =>
-                and(
-                  equal("type", "unarchived"),
-                  equal("path", d.path)
-                )
-              ): _*)))
-        ).toFutureOption().andThen({
-          case Success(_) => archivable.foreach(d =>
-            archiver.send(ArchiveMsg(source = Some(d.path))))
-        })
-      }
-    } else {
-      Future.successful(Some(true))
-    }
 
   def unarchive(document: DoclibDoc): Option[List[String]] = {
     val sourcePath = document.source
@@ -126,7 +102,7 @@ class UnarchiveHandler(
     */
   def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
   //TODO This same pattern is used in other consumers so maybe we can move to a shared lib in common or a shared consumer lib.
-    paths.map(d => ParentChildMapping(_id = UUID.randomUUID(), childPath = d, parent = doc._id, consumer = Some("unarchived")))
+    paths.map(d => ParentChildMapping(_id = UUID.randomUUID(), childPath = d, parent = doc._id, consumer = Some(config.getString("consumer.name"))))
 
   /** Handler for the unarchive consumer.
     * @param msg message to process
@@ -136,7 +112,7 @@ class UnarchiveHandler(
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
 
-    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("upstream.queue")))
+    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("consumer.queue")))
 
     val unarchivedDocT: OptionT[Future, (List[String], DoclibDoc)] =
       for {
@@ -157,15 +133,15 @@ class UnarchiveHandler(
       case Success(result) =>
         result match {
           case Some(r) =>
-            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "success").inc()
+            handlerCount.labels(config.getString("consumer.name"), config.getString("consumer.queue"), "success").inc()
             supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
             println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
           case None =>
-            handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "empty_doc_error").inc()
+            handlerCount.labels(config.getString("consumer.name"), config.getString("consumer.queue"), "empty_doc_error").inc()
             throw new Exception("Unidentified error occurred")
         }
       case Failure(_) =>
-        handlerCount.labels("consumer-unarchive", config.getString("upstream.queue"), "unknown_error").inc()
+        handlerCount.labels(config.getString("consumer.name"), config.getString("consumer.queue"), "unknown_error").inc()
         Try(Await.result(fetch(msg.id), Duration.Inf)) match {
           case Success(value: Option[DoclibDoc]) => value match {
             case Some(doc) => flagContext.error(doc, noCheck = true)
