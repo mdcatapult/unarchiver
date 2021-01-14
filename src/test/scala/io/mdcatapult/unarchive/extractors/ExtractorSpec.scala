@@ -10,11 +10,11 @@ class ExtractorSpec extends TestAbstract("ingress") {
 
   "getTargetPath" should "return a valid path for a local path" in {
     val path = new dummy("local/cheese/stinking-bishop.cz").targetPath
-    assert(path.toString == "ingress/derivatives/cheese/unarchived_stinking-bishop.cz")
+    assert(path.toString == "ingress/derivatives/cheese/unarchiver_stinking-bishop.cz")
   }
   it should "return a valid path for a remote path" in {
     val path = new dummy("remote/http/phpboyscout.uk/assets/test.zip").targetPath
-    assert(path.toString == "ingress/derivatives/remote/http/phpboyscout.uk/assets/unarchived_test.zip")
+    assert(path.toString == "ingress/derivatives/remote/http/phpboyscout.uk/assets/unarchiver_test.zip")
   }
 
 }
