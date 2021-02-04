@@ -22,8 +22,11 @@ class TestAbstract(tempDir: String) extends AnyFlatSpec with BeforeAndAfterAll {
       |    target-dir: "remote"
       |  }
       |  derivative {
-      |    path: "derivatives"
+      |    target-dir: "derivatives"
       |  }
+      |}
+      |consumer {
+      |  name = "unarchiver"
       |}
     """.stripMargin)
 

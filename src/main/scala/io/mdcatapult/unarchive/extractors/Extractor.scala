@@ -1,17 +1,17 @@
 package io.mdcatapult.unarchive.extractors
 
+import com.typesafe.config.Config
 import java.io.File
 import java.nio.file.{Path, Paths}
-
-import com.typesafe.config.Config
+import scala.util.Try
 
 abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) {
 
   private val localTargetDir = config.getString("doclib.local.target-dir")
-  private val unarchiveToDir = config.getString("doclib.derivative.path")
+  private val unarchiveToDir = config.getString("doclib.derivative.target-dir")
   private val tempDir = config.getString("doclib.local.temp-dir")
 
-  val targetPath: Path = getTargetPath(source, unarchiveToDir, Some("unarchived"))
+  val targetPath: Path = getTargetPath(source, unarchiveToDir, Try(config.getString("consumer.name")).toOption)
   val doclibRoot: Path = Path.of(s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/")
 
   val file: File = absoluteFile(doclibRoot, Path.of(source))

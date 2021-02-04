@@ -23,8 +23,7 @@ import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.result.InsertManyResult
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class UnarchiveHandler(
@@ -112,7 +111,7 @@ class UnarchiveHandler(
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
 
-    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("consumer.queue")))
+    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("consumer.name")))
 
     val unarchivedDocT: OptionT[Future, (List[String], DoclibDoc)] =
       for {
@@ -121,7 +120,6 @@ class UnarchiveHandler(
         started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
         unarchived <- OptionT.fromOption[Future](unarchive(doc))
         _ <- OptionT.liftF(persist(doc, unarchived))
-//        result ← OptionT(archive(doc, archivable))
         _ <- OptionT(enqueue(unarchived, doc))
         _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
       } yield unarchived -> doc
@@ -129,27 +127,41 @@ class UnarchiveHandler(
     val unarchivedDoc: Future[Option[(List[String], DoclibDoc)]] =
       unarchivedDocT.value
 
-    unarchivedDoc.andThen({
+    unarchivedDoc.andThen {
       case Success(result) =>
         result match {
           case Some(r) =>
-            handlerCount.labels(config.getString("consumer.name"), config.getString("consumer.queue"), "success").inc()
+            incrementHandlerCount("success")
             supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
             println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
           case None =>
-            handlerCount.labels(config.getString("consumer.name"), config.getString("consumer.queue"), "empty_doc_error").inc()
-            throw new Exception("Unidentified error occurred")
+            incrementHandlerCount("empty_doc_error")
+            val message = "Unidentified error occurred"
+            logger.error(message, new Exception(message))
         }
-      case Failure(_) =>
-        handlerCount.labels(config.getString("consumer.name"), config.getString("consumer.queue"), "unknown_error").inc()
-        Try(Await.result(fetch(msg.id), Duration.Inf)) match {
-          case Success(value: Option[DoclibDoc]) => value match {
-            case Some(doc) => flagContext.error(doc, noCheck = true)
-            case _ => () // do nothing as error handling will capture
+      case Failure(e) =>
+        logger.error("error during handle process", e)
+        incrementHandlerCount("unknown_error")
+
+        fetch(msg.id).onComplete {
+          case Failure(e) => logger.error(s"error retrieving document", e)
+          case Success(value) => value match {
+            case Some(foundDoc) =>
+              flagContext.error(foundDoc, noCheck = true).andThen {
+                case Failure(e) => logger.error("error attempting error flag write", e)
+              }
+            case None =>
+              val message = f"${msg.id} - no document found"
+              logger.error(message, new Exception(message))
           }
-          case Failure(_) => () // do nothing as error handling will capture
         }
-    })
+    }
   }
+
+  private def incrementHandlerCount(labels: String*): Unit = {
+    val labelsWithDefaults = Seq(config.getString("consumer.name"), config.getString("consumer.queue")) ++ labels
+    handlerCount.labels(labelsWithDefaults: _*).inc()
+  }
+
 
 }
