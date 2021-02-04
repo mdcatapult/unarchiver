@@ -8,7 +8,7 @@ import scala.util.Try
 abstract class Extractor[ArchiveEntry](source: String)(implicit config: Config) {
 
   private val localTargetDir = config.getString("doclib.local.target-dir")
-  private val unarchiveToDir = config.getString("doclib.derivative.path")
+  private val unarchiveToDir = config.getString("doclib.derivative.target-dir")
   private val tempDir = config.getString("doclib.local.temp-dir")
 
   val targetPath: Path = getTargetPath(source, unarchiveToDir, Try(config.getString("consumer.name")).toOption)
