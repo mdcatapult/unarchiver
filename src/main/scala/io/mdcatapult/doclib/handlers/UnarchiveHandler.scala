@@ -1,11 +1,11 @@
 package io.mdcatapult.doclib.handlers
 
 import java.util.UUID
-
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+import io.mdcatapult.doclib.consumer.{ConsumerHandler, HandlerReturn}
 import io.mdcatapult.doclib.flag.{FlagContext, MongoFlagStore}
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.metrics.Metrics.handlerCount
@@ -26,20 +26,19 @@ import org.mongodb.scala.result.InsertManyResult
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class UnarchiveHandler(
-                        prefetch: Sendable[PrefetchMsg],
-                        supervisor: Sendable[SupervisorMsg],
-                        readLimit: LimitedExecution,
-                      )
+class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
+                       supervisor: Sendable[SupervisorMsg],
+                       readLimit: LimitedExecution)
                       (implicit ec: ExecutionContext,
                        config: Config,
                        collection: MongoCollection[DoclibDoc],
-                       derivativesCollection: MongoCollection[ParentChildMapping]
-                      ) extends LazyLogging {
+                       derivativesCollection: MongoCollection[ParentChildMapping]) extends ConsumerHandler[DoclibMsg] {
 
   private val docExtractor = DoclibDocExtractor()
   private val version = Version.fromConfig(config)
   private val flags = new MongoFlagStore(version, docExtractor, collection, nowUtc)
+
+  case class UnarchiveHandlerReturn(unarchivePaths: List[String], doclibDoc: DoclibDoc) extends HandlerReturn
 
   def enqueue(extracted: List[String], doc: DoclibDoc): Future[Option[Boolean]] = {
     // Let prefetch know that it is an unarchived derivative
@@ -56,7 +55,7 @@ class UnarchiveHandler(
         ))),
         tags = doc.tags,
         metadata = Some(doc.metadata.getOrElse(Nil) ::: derivativeMetadata),
-        derivative =  Some(true)
+        derivative = Some(true)
       ))
     })
     Future.successful(Some(true))
@@ -95,7 +94,8 @@ class UnarchiveHandler(
 
   /**
     * Create list of parent child mappings
-    * @param doc DoclibDoc
+    *
+    * @param doc   DoclibDoc
     * @param paths List[String]
     * @return List[Derivative] unique list of derivatives
     */
@@ -104,16 +104,17 @@ class UnarchiveHandler(
     paths.map(d => ParentChildMapping(_id = UUID.randomUUID(), childPath = d, parent = doc._id, consumer = Some(config.getString("consumer.name"))))
 
   /** Handler for the unarchive consumer.
+    *
     * @param msg message to process
     * @param key routing key from rabbitmq
     * @return
     */
-  def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
+  def handle(msg: DoclibMsg, key: String): Future[Option[UnarchiveHandlerReturn]] = {
     logger.info(f"RECEIVED: ${msg.id}")
 
     val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("consumer.name")))
 
-    val unarchivedDocT: OptionT[Future, (List[String], DoclibDoc)] =
+    val unarchivedDoc =
       for {
         doc: DoclibDoc <- OptionT(fetch(msg.id))
         if !docExtractor.isRunRecently(doc)
@@ -122,18 +123,16 @@ class UnarchiveHandler(
         _ <- OptionT.liftF(persist(doc, unarchived))
         _ <- OptionT(enqueue(unarchived, doc))
         _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
-      } yield unarchived -> doc
+      } yield UnarchiveHandlerReturn(unarchived, doc)
 
-    val unarchivedDoc: Future[Option[(List[String], DoclibDoc)]] =
-      unarchivedDocT.value
 
-    unarchivedDoc.andThen {
+    unarchivedDoc.value.andThen {
       case Success(result) =>
         result match {
           case Some(r) =>
             incrementHandlerCount("success")
-            supervisor.send(SupervisorMsg(id = r._2._id.toHexString))
-            println(f"COMPLETE: ${msg.id} - Unarchived ${r._1.length}")
+            supervisor.send(SupervisorMsg(id = r.doclibDoc._id.toHexString))
+            println(f"COMPLETE: ${msg.id} - Unarchived ${r.unarchivePaths.length}")
           case None =>
             incrementHandlerCount("empty_doc_error")
             val message = "Unidentified error occurred"
