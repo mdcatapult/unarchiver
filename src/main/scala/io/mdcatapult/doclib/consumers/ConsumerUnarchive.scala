@@ -33,12 +33,14 @@ object ConsumerUnarchive extends AbstractConsumer() {
     val upstream: Queue[DoclibMsg] = queue("consumer.queue")
 
     val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
+    val writeLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
 
     upstream.subscribe(
       new UnarchiveHandler(
         prefetch,
         supervisor,
         readLimiter,
+        writeLimiter
       ).handle,
       config.getInt("consumer.concurrency")
     )
