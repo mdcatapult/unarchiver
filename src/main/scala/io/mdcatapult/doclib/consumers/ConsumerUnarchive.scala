@@ -6,7 +6,7 @@ import com.spingo.op_rabbit.SubscriptionRef
 import io.mdcatapult.doclib.consumer.AbstractConsumer
 import io.mdcatapult.doclib.handlers.UnarchiveHandler
 import io.mdcatapult.doclib.messages._
-import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
+import io.mdcatapult.doclib.models.{ConsumerConfig, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.util.admin.{Server => AdminServer}
@@ -22,6 +22,14 @@ object ConsumerUnarchive extends AbstractConsumer() {
     import as.dispatcher
 
     AdminServer(config).start()
+
+    implicit val consumerConfig: ConsumerConfig =
+      ConsumerConfig(
+        config.getString("consumer.name"),
+        config.getInt("consumer.concurrency"),
+        config.getString("consumer.queue"),
+        config.getString("consumer.exchange")
+      )
 
     implicit val collection: MongoCollection[DoclibDoc] =
       mongo.getCollection(config.getString("mongo.doclib-database"), config.getString("mongo.documents-collection"))

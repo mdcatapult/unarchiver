@@ -3,7 +3,7 @@ package io.mdcatapult.doclib.handlers
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{ConsumerHandler, HandlerResultWithDerivatives}
+import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResultWithDerivatives}
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models._
@@ -29,12 +29,10 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
                       (implicit ec: ExecutionContext,
                        config: Config,
                        collection: MongoCollection[DoclibDoc],
-                       derivativesCollection: MongoCollection[ParentChildMapping]) extends ConsumerHandler[DoclibMsg] {
+                       derivativesCollection: MongoCollection[ParentChildMapping],
+                       consumerConfig: ConsumerConfig) extends AbstractHandler[DoclibMsg] {
 
   private val version: Version = Version.fromConfig(config)
-
-  private implicit val consumerNameAndQueue: ConsumerNameAndQueue =
-    ConsumerNameAndQueue(config.getString("consumer.name"), config.getString("consumer.queue"))
 
   /** Handler for the unarchive consumer.
     *
@@ -44,7 +42,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
   override def handle(msg: DoclibMsg): Future[Option[HandlerResultWithDerivatives]] = {
     logReceived(msg.id)
 
-    val flagContext = new MongoFlagContext(consumerNameAndQueue.name, version, collection, nowUtc)
+    val flagContext = new MongoFlagContext(consumerConfig.name, version, collection, nowUtc)
 
     val unarchiveProcess =
       for {
@@ -59,7 +57,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
       } yield HandlerResultWithDerivatives(finishedDoc, Some(unarchived))
 
     postHandleProcess(
-      messageId = msg.id,
+      documentId = msg.id,
       handlerResult = unarchiveProcess.value,
       flagContext = flagContext,
       supervisorQueue = supervisor,
@@ -126,7 +124,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
         _id = UUID.randomUUID(),
         childPath = path,
         parent = doc._id,
-        consumer = Some(consumerNameAndQueue.name)
+        consumer = Some(consumerConfig.name)
       )
     )
   }
