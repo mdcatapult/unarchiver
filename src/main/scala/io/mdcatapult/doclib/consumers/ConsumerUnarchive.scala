@@ -13,6 +13,9 @@ import io.mdcatapult.util.admin.{Server => AdminServer}
 import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import org.mongodb.scala.MongoCollection
 
+import scala.util.Try
+
+
 /**
   * RabbitMQ Consumer to unarchive files
   */
@@ -28,7 +31,7 @@ object ConsumerUnarchive extends AbstractConsumer() {
         config.getString("consumer.name"),
         config.getInt("consumer.concurrency"),
         config.getString("consumer.queue"),
-        config.getString("consumer.exchange")
+        Try(config.getString("consumer.exchange")).toOption
       )
 
     implicit val collection: MongoCollection[DoclibDoc] =
