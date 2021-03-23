@@ -3,7 +3,7 @@ package io.mdcatapult.doclib.handlers
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResultWithDerivatives}
+import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResult}
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models._
@@ -22,6 +22,9 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
+case class UnarchiveResult(doclibDoc: DoclibDoc,
+                           unarchivedFiles: Option[List[String]]) extends HandlerResult
+
 class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
                        supervisor: Sendable[SupervisorMsg],
                        val readLimiter: LimitedExecution,
@@ -39,7 +42,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
     * @param msg message to process
     * @return
     */
-  override def handle(msg: DoclibMsg): Future[Option[HandlerResultWithDerivatives]] = {
+  override def handle(msg: DoclibMsg): Future[Option[UnarchiveResult]] = {
     logReceived(msg.id)
 
     val flagContext = new MongoFlagContext(consumerConfig.name, version, collection, nowUtc)
@@ -54,7 +57,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
         _ <- OptionT(enqueue(unarchived, doc))
         _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
         finishedDoc: DoclibDoc <- OptionT(findDocById(collection, msg.id))
-      } yield HandlerResultWithDerivatives(finishedDoc, Some(unarchived))
+      } yield UnarchiveResult(finishedDoc, Some(unarchived))
 
     postHandleProcess(
       documentId = msg.id,

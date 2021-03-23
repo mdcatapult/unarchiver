@@ -15,7 +15,6 @@ import org.mongodb.scala.MongoCollection
 
 import scala.util.Try
 
-
 /**
   * RabbitMQ Consumer to unarchive files
   */
