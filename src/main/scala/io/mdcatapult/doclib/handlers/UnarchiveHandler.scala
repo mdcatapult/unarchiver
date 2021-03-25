@@ -33,7 +33,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
                        config: Config,
                        collection: MongoCollection[DoclibDoc],
                        derivativesCollection: MongoCollection[ParentChildMapping],
-                       consumerConfig: ConsumerConfig) extends AbstractHandler[DoclibMsg] {
+                       appConfig: AppConfig) extends AbstractHandler[DoclibMsg] {
 
   private val version: Version = Version.fromConfig(config)
 
@@ -45,7 +45,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
   override def handle(msg: DoclibMsg): Future[Option[UnarchiveResult]] = {
     logReceived(msg.id)
 
-    val flagContext = new MongoFlagContext(consumerConfig.name, version, collection, nowUtc)
+    val flagContext = new MongoFlagContext(appConfig.name, version, collection, nowUtc)
 
     val unarchiveProcess =
       for {
@@ -127,7 +127,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
         _id = UUID.randomUUID(),
         childPath = path,
         parent = doc._id,
-        consumer = Some(consumerConfig.name)
+        consumer = Some(appConfig.name)
       )
     )
   }
