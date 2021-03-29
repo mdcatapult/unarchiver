@@ -6,12 +6,14 @@ import com.spingo.op_rabbit.SubscriptionRef
 import io.mdcatapult.doclib.consumer.AbstractConsumer
 import io.mdcatapult.doclib.handlers.UnarchiveHandler
 import io.mdcatapult.doclib.messages._
-import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
+import io.mdcatapult.doclib.models.{AppConfig, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.util.admin.{Server => AdminServer}
 import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import org.mongodb.scala.MongoCollection
+
+import scala.util.Try
 
 /**
   * RabbitMQ Consumer to unarchive files
@@ -23,6 +25,14 @@ object ConsumerUnarchive extends AbstractConsumer() {
 
     AdminServer(config).start()
 
+    implicit val appConfig: AppConfig =
+      AppConfig(
+        config.getString("consumer.name"),
+        config.getInt("consumer.concurrency"),
+        config.getString("consumer.queue"),
+        Try(config.getString("consumer.exchange")).toOption
+      )
+
     implicit val collection: MongoCollection[DoclibDoc] =
       mongo.getCollection(config.getString("mongo.doclib-database"), config.getString("mongo.documents-collection"))
     implicit val derivativesCollection: MongoCollection[ParentChildMapping] =
@@ -33,12 +43,14 @@ object ConsumerUnarchive extends AbstractConsumer() {
     val upstream: Queue[DoclibMsg] = queue("consumer.queue")
 
     val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
+    val writeLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
 
     upstream.subscribe(
       new UnarchiveHandler(
         prefetch,
         supervisor,
         readLimiter,
+        writeLimiter
       ).handle,
       config.getInt("consumer.concurrency")
     )
