@@ -33,3 +33,12 @@ It also allows for a --config flag to allow injection of common configs that wil
 * **UPSTREAM_CONCURRENCY** - optional: number of messages to handle concurrently (default: 1)
 * **DOWNSTREAM_QUEUE** - optional: name of queue to enqueue new files to (default: prefetch)
 
+## Dependency Scanning
+
+https://github.com/albuch/sbt-dependency-check
+
+The sbt-dependency-check plugin can be used to create a HTML report under `target/scala-x.x/dependency-check-report.html`
+
+```bash
+sbt dependencyCheck
+```
