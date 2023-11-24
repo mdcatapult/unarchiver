@@ -1,9 +1,10 @@
 package io.mdcatapult.doclib.handlers
 
+import akka.stream.alpakka.amqp.scaladsl.CommittableReadResult
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResult}
+import io.mdcatapult.doclib.consumer.AbstractHandler
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages.{DoclibMsg, PrefetchMsg, SupervisorMsg}
 import io.mdcatapult.doclib.models._
@@ -17,13 +18,12 @@ import io.mdcatapult.util.time.nowUtc
 import org.apache.commons.compress.archivers.ArchiveException
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.result.InsertManyResult
+import play.api.libs.json.Json
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-case class UnarchiveResult(doclibDoc: DoclibDoc,
-                           unarchivedFiles: Option[List[String]]) extends HandlerResult
 
 class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
                        supervisor: Sendable[SupervisorMsg],
@@ -33,7 +33,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
                        config: Config,
                        collection: MongoCollection[DoclibDoc],
                        derivativesCollection: MongoCollection[ParentChildMapping],
-                       appConfig: AppConfig) extends AbstractHandler[DoclibMsg] {
+                       appConfig: AppConfig) extends AbstractHandler[DoclibMsg, UnarchiveHandlerResult] {
 
   private val version: Version = Version.fromConfig(config)
 
@@ -42,30 +42,43 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
     * @param msg message to process
     * @return
     */
-  override def handle(msg: DoclibMsg): Future[Option[UnarchiveResult]] = {
-    logReceived(msg.id)
+  override def handle(doclibMsgWrapper: CommittableReadResult): Future[(CommittableReadResult, Try[UnarchiveHandlerResult])] = {
 
-    val flagContext = new MongoFlagContext(appConfig.name, version, collection, nowUtc)
+    Try {
+      Json.parse(doclibMsgWrapper.message.bytes.utf8String).as[DoclibMsg]
+    } match {
+      case Success(msg: DoclibMsg) => {
+        logReceived(msg.id)
+        val flagContext = new MongoFlagContext(appConfig.name, version, collection, nowUtc)
 
-    val unarchiveProcess =
-      for {
-        doc: DoclibDoc <- OptionT(findDocById(collection, msg.id))
-        if !flagContext.isRunRecently(doc)
-        started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
-        unarchived <- OptionT.fromOption[Future](unarchive(doc))
-        _ <- OptionT.liftF(persist(doc, unarchived))
-        _ <- OptionT(enqueue(unarchived, doc))
-        _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
-        finishedDoc: DoclibDoc <- OptionT(findDocById(collection, msg.id))
-      } yield UnarchiveResult(finishedDoc, Some(unarchived))
+        val unarchiveProcess =
+          for {
+            doc: DoclibDoc <- OptionT(findDocById(collection, msg.id))
+            if !flagContext.isRunRecently(doc)
+            started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
+            unarchived <- OptionT.fromOption[Future](unarchive(doc))
+            _ <- OptionT.liftF(persist(doc, unarchived))
+            _ <- OptionT(enqueue(unarchived, doc))
+            _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
+            finishedDoc: DoclibDoc <- OptionT(findDocById(collection, msg.id))
+          } yield UnarchiveHandlerResult(finishedDoc, Some(unarchived))
 
-    postHandleProcess(
-      documentId = msg.id,
-      handlerResult = unarchiveProcess.value,
-      flagContext = flagContext,
-      supervisorQueue = supervisor,
-      collection = collection
-    )
+        val finalResult = unarchiveProcess.value.transformWith({
+          case Success(Some(value: UnarchiveHandlerResult)) => Future((doclibMsgWrapper, Success(value)))
+          case Success(None) => Future((doclibMsgWrapper, Failure(new Exception(s"No raw text result was present for ${msg.id}"))))
+          case Failure(e) => Future((doclibMsgWrapper, Failure(e)))
+        })
+
+        postHandleProcess(
+          documentId = msg.id,
+          handlerResult = finalResult,
+          flagContext = flagContext,
+          supervisorQueue = supervisor,
+          collection = collection
+        )
+      }
+      case Failure(e) => Future.successful((doclibMsgWrapper, Failure(e)))
+    }
   }
 
   def enqueue(extracted: List[String], doc: DoclibDoc): Future[Option[Boolean]] = {
