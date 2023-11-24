@@ -40,13 +40,12 @@ lazy val root = (project in file(".")).
       }
     },
     libraryDependencies ++= Seq(
-      "org.scalactic" %% "scalactic"                  % sclacticVersion,
+      "org.scalactic" %% "scalactic"                  % scalacticVersion,
       "org.scalatest" %% "scalatest"                  % scalaTestVersion % Test,
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
       "ch.qos.logback" % "logback-classic"            % logbackClassicVersion,
       "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
       "com.typesafe" % "config"                       % configVersion,
-      "org.typelevel" %% "cats-macros"                % catsVersion,
       "org.typelevel" %% "cats-kernel"                % catsVersion,
       "org.typelevel" %% "cats-core"                  % catsVersion,
       "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
@@ -58,8 +57,8 @@ lazy val root = (project in file(".")).
   )
   .settings(
     assemblyJarName := "consumer.jar",
-    test in assembly := {},
-    assemblyMergeStrategy in assembly := {
+    assembly / test := {},
+    assembly / assemblyMergeStrategy := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
       case PathList("com", "sun", _*) => MergeStrategy.first
@@ -79,7 +78,7 @@ lazy val root = (project in file(".")).
       case n if n.startsWith("logback.xml") => MergeStrategy.first
       case meta(_) => MergeStrategy.first
       case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        val oldStrategy = (assembly / assemblyMergeStrategy).value
         oldStrategy(x)
     })
   .settings(
