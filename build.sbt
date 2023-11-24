@@ -1,10 +1,15 @@
 import sbtrelease.ReleaseStateTransformations._
 import Release._
 
-lazy val configVersion = "1.3.2"
-lazy val akkaVersion = "2.6.4"
-lazy val catsVersion = "2.1.0"
-lazy val doclibCommonVersion = "3.0.2"
+lazy val configVersion = "1.4.2"
+lazy val akkaVersion = "2.8.1"
+lazy val catsVersion = "2.9.0"
+lazy val doclibCommonVersion = "4.0.1"
+lazy val scalacticVersion = "3.2.15"
+lazy val scalaTestVersion = "3.2.15"
+lazy val scalaMockVersion = "5.2.0"
+lazy val scalaLoggingVersion = "3.9.5"
+lazy val logbackClassicVersion = "1.4.7"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
@@ -23,23 +28,23 @@ lazy val root = (project in file(".")).
       "-Xfatal-warnings",
     ),
     resolvers         ++= Seq(
-      "MDC Nexus Releases" at "https://nexus.wopr.inf.mdc/repository/maven-releases/",
-      "MDC Nexus Snapshots" at "https://nexus.wopr.inf.mdc/repository/maven-snapshots/"),
-    updateOptions := updateOptions.value.withLatestSnapshots(latestSnapshots = false),
+      "gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven",
+      "Maven Public" at "https://repo1.maven.org/maven2"),
+    updateOptions     := updateOptions.value.withLatestSnapshots(latestSnapshots = false),
     credentials       += {
-      sys.env.get("NEXUS_PASSWORD") match {
+      sys.env.get("CI_JOB_TOKEN") match {
         case Some(p) =>
-          Credentials("Sonatype Nexus Repository Manager", "nexus.wopr.inf.mdc", "gitlab", p)
+          Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", p)
         case None =>
           Credentials(Path.userHome / ".sbt" / ".credentials")
       }
     },
     libraryDependencies ++= Seq(
-      "org.scalactic" %% "scalactic"                  % "3.1.1",
-      "org.scalatest" %% "scalatest"                  % "3.1.1" % Test,
+      "org.scalactic" %% "scalactic"                  % sclacticVersion,
+      "org.scalatest" %% "scalatest"                  % scalaTestVersion % Test,
       "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
-      "ch.qos.logback" % "logback-classic"            % "1.2.3",
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+      "ch.qos.logback" % "logback-classic"            % logbackClassicVersion,
+      "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
       "com.typesafe" % "config"                       % configVersion,
       "org.typelevel" %% "cats-macros"                % catsVersion,
       "org.typelevel" %% "cats-kernel"                % catsVersion,
