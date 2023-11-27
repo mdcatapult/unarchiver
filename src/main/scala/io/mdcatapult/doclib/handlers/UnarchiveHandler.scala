@@ -65,7 +65,7 @@ class UnarchiveHandler(prefetch: Sendable[PrefetchMsg],
 
         val finalResult = unarchiveProcess.value.transformWith({
           case Success(Some(value: UnarchiveHandlerResult)) => Future((doclibMsgWrapper, Success(value)))
-          case Success(None) => Future((doclibMsgWrapper, Failure(new Exception(s"No raw text result was present for ${msg.id}"))))
+          case Success(None) => Future((doclibMsgWrapper, Failure(new Exception(s"No unarchive result was present for ${msg.id}"))))
           case Failure(e) => Future((doclibMsgWrapper, Failure(e)))
         })
 
