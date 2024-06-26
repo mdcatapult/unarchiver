@@ -11,7 +11,7 @@ import scala.util.{Failure, Success, Try}
 
 class Auto(source: String)(implicit config: Config) extends Extractor[ArchiveEntry](source) {
 
-  private val ais: ArchiveInputStream = {
+  private val ais: ArchiveInputStream[ArchiveEntry] = {
     val input = new BufferedInputStream(new FileInputStream(file))
     val cis =
       Try(new CompressorStreamFactory().createCompressorInputStream(input)) match {

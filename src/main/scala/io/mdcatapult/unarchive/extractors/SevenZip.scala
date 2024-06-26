@@ -7,7 +7,7 @@ import scala.jdk.CollectionConverters._
 
 class SevenZip(source: String)(implicit config: Config) extends Extractor[SevenZArchiveEntry](source) {
 
-  private val sevenZFile = new SevenZFile(file)
+  private val sevenZFile = SevenZFile.builder().setFile(file).get()
 
   override def getEntries: Iterator[SevenZArchiveEntry] = sevenZFile.getEntries.iterator.asScala.filterNot(_.getSize == 0)
 

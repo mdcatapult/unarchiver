@@ -1,6 +1,5 @@
 package io.mdcatapult.doclib.handlers
 
-import akka.stream.alpakka.amqp.scaladsl.CommittableReadResult
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
@@ -16,6 +15,7 @@ import io.mdcatapult.util.models.Version
 import io.mdcatapult.util.models.result.UpdatedResult
 import io.mdcatapult.util.time.nowUtc
 import org.apache.commons.compress.archivers.ArchiveException
+import org.apache.pekko.stream.connectors.amqp.scaladsl.CommittableReadResult
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.result.InsertManyResult
 import play.api.libs.json.Json
