@@ -1,17 +1,33 @@
-import sbtrelease.ReleaseStateTransformations._
-import Release._
+import sbtrelease.ReleaseStateTransformations.*
+import Release.*
 
-lazy val configVersion = "1.4.2"
-lazy val akkaVersion = "2.8.1"
-lazy val catsVersion = "2.9.0"
-lazy val doclibCommonVersion = "4.0.1"
+import scala.collection.Seq
+
+lazy val configVersion = "1.4.3"
+lazy val pekkoVersion = "1.0.2"
+lazy val catsVersion = "2.12.0"
+lazy val doclibCommonVersion = "5.0.1"
 lazy val scalacticVersion = "3.2.15"
 lazy val scalaTestVersion = "3.2.15"
 lazy val scalaMockVersion = "5.2.0"
 lazy val scalaLoggingVersion = "3.9.5"
-lazy val logbackClassicVersion = "1.4.7"
+lazy val logbackClassicVersion = "1.5.6"
+lazy val commonsCompressVersion = "1.26.2"
+lazy val xzVersion = "1.9"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
+
+lazy val creds = {
+  sys.env.get("CI_JOB_TOKEN") match {
+    case Some(token) =>
+      Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", token)
+    case _ =>
+      Credentials(Path.userHome / ".sbt" / ".credentials")
+  }
+}
+
+// Registry ID is the project ID of the project where the package is published, this should be set in the CI/CD environment
+val registryId = sys.env.get("REGISTRY_HOST_PROJECT_ID").getOrElse("")
 
 lazy val root = (project in file(".")).
   settings(
@@ -27,28 +43,25 @@ lazy val root = (project in file(".")).
       "-Xlint",
       "-Xfatal-warnings",
     ),
-    resolvers         ++= Seq(
-      "gitlab" at "https://gitlab.com/api/v4/projects/50550924/packages/maven",
+    resolvers ++= Seq(
+      "gitlab" at s"https://gitlab.com/api/v4/projects/$registryId/packages/maven",
       "Maven Public" at "https://repo1.maven.org/maven2"),
-    updateOptions     := updateOptions.value.withLatestSnapshots(latestSnapshots = false),
-    credentials       += {
-      sys.env.get("CI_JOB_TOKEN") match {
-        case Some(p) =>
-          Credentials("GitLab Packages Registry", "gitlab.com", "gitlab-ci-token", p)
-        case None =>
-          Credentials(Path.userHome / ".sbt" / ".credentials")
-      }
+    publishTo := {
+      Some("gitlab" at s"https://gitlab.com/api/v4/projects/$registryId/packages/maven")
     },
+    credentials += creds,
     libraryDependencies ++= Seq(
       "org.scalactic" %% "scalactic"                  % scalacticVersion,
       "org.scalatest" %% "scalatest"                  % scalaTestVersion % Test,
-      "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
+      "org.apache.pekko" %% "pekko-slf4j"             % pekkoVersion,
       "ch.qos.logback" % "logback-classic"            % logbackClassicVersion,
       "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
       "com.typesafe" % "config"                       % configVersion,
       "org.typelevel" %% "cats-kernel"                % catsVersion,
       "org.typelevel" %% "cats-core"                  % catsVersion,
       "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
+      "org.apache.commons" % "commons-compress"       % commonsCompressVersion,
+      "org.tukaani" % "xz"                            % xzVersion
     ).map(
       _.exclude(org = "javax.ws.rs", name = "javax.ws.rs-api")
         .exclude(org = "com.google.protobuf", name = "protobuf-java")
@@ -75,6 +88,7 @@ lazy val root = (project in file(".")).
       case PathList(xs @ _*) if xs.last == "module-info.class" => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == "public-suffix-list.txt" => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
+      case PathList(xs @ _*) if xs.last == "native-image.properties" => MergeStrategy.first
       case "META-INF/jpms.args" => MergeStrategy.discard
       case n if n.startsWith("application.conf") => MergeStrategy.first
       case n if n.startsWith("scala-collection-compat.properties") => MergeStrategy.first
